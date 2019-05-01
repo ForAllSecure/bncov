@@ -7,6 +7,8 @@ import sys
 import time
 import glob
 import multiprocessing
+import functools
+from pipes import quote as shell_quote
 
 # wraps calling drcov on a bunch of files and renaming the outputs
 
@@ -23,7 +25,7 @@ if not os.path.exists(path_to_dynamorio):
     exit()
 
 
-def wrap_get_block_coverage(path):
+def wrap_get_block_coverage(command, path):
     try:
         name = os.path.basename(path)
         output_path = os.path.join(output_dir, name + ".cov")
@@ -94,7 +96,7 @@ if __name__ == "__main__":
         exit()
 
     script_options = sys.argv[1:sys.argv.index("--")]
-    target_invocation = " ".join(sys.argv[sys.argv.index("--")+1:])
+    target_invocation = " ".join(shell_quote(i) for i in sys.argv[sys.argv.index("--")+1:])
 
     # parse script options
     to_process = script_options[0]
@@ -202,7 +204,7 @@ if __name__ == "__main__":
                 print("[*] %d files to process:" % num_files)
 
             pool = multiprocessing.Pool(num_workers)
-            pool.map(wrap_get_block_coverage, files_to_process)
+            pool.map(functools.partial(wrap_get_block_coverage, command), files_to_process)
             pool.close()
             pool = None
             if continuously_monitor:
