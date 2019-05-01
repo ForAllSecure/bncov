@@ -45,25 +45,25 @@ heat map fashion: blocks covered by most traces (blue) or by few traces
 highlighting and a per-function block coverage report.
 
 * Watch a directory to have new coverage results get automatically highlighted
-when new coverage files appear*
+when new coverage files appear
 
 ![Watch Coverage Directory](/pictures/Coverage-watching.gif)
 
 * See at a glance which blocks are only covered by one or a few traces
-(redder=rarer, bluer=more common)*
+(redder=rarer, bluer=more common)
 
 ![See Relative Rarity](/pictures/Relative-Rarity.png)
 
-* Quickly discover rare functionality visually or with scripting*
+* Quickly discover rare functionality visually or with scripting
 
 ![Highlight Rare Blocks](/pictures/Heartbleed-Rare-block.png)
 
-* Identify which blocks have outgoing edges not covered in the traces*
+* Identify which blocks have outgoing edges not covered in the traces
 
 ![Highlight Frontier Blocks](/pictures/Frontier-Highlight.png)
 
 * See coverage reports on functions of interest or what functionality may not
-be hit, or write your own analyses for headless scripting*
+be hit, or write your own analyses for headless scripting
 
 ![Block Coverage Report](/pictures/Coverage-Report.png)
 
