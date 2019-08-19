@@ -31,7 +31,6 @@ def wrap_get_block_coverage(path):
             return 1
         else:
             print("[!] Error occurred on seed: %s" % path)
-            return 0
     except KeyboardInterrupt:
         pool.terminate()
 
@@ -204,9 +203,10 @@ if __name__ == "__main__":
             return_stream = pool.imap(wrap_get_block_coverage, files_to_process)
             for i, path in enumerate(files_to_process):
                 if return_stream.next():
-                    sys.stdout.write("\r[%d/%d] Coverage collected for %s"
+                    # If this doesn't work, use sys.stdout.write("\b" * prev_output_len) 
+                    sys.stdout.write("\r[%d/%d] Coverage collected for %s" 
                                      % (i+1, num_files, path))
-                    sys.stdout.flush()
+                    sys.stdout.flush() 
             sys.stdout.write("\n")
             pool.close()
             pool = None
