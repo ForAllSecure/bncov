@@ -33,16 +33,17 @@ def get_coverage_db(dirname, bv):
         duration = time.time() - start
         num_files = len(os.listdir(dirname))
         print(" finished (%d files) in %.02f seconds" % (num_files, duration))
-        try:
-            import msgpack  # dependency for save_to_file
-            sys.stdout.write("[*] Saving coverage object to file '%s'..." % covdb_name)
-            sys.stdout.flush()
-            start = time.time()
-            covdb.save_to_file(covdb_name)
-            duration = time.time() - start
-            print(" finished in %.02f seconds" % duration)
-        except ImportError:
-            pass
+        # Including for example, disabling to reduce surprise
+        # try:
+        #     import msgpack  # dependency for save_to_file
+        #     sys.stdout.write("[*] Saving coverage object to file '%s'..." % covdb_name)
+        #     sys.stdout.flush()
+        #     start = time.time()
+        #     covdb.save_to_file(covdb_name)
+        #     duration = time.time() - start
+        #     print(" finished in %.02f seconds" % duration)
+        # except ImportError:
+        #     pass
     return covdb
 
 
@@ -70,12 +71,12 @@ if __name__ == "__main__":
     for i, covdb in enumerate(covdbs):
         if i == 0:
             prev_covdb = covdb
-            print("[*] %s is the base, containing %d blocks" % (covdb.filename, len(covdb.total_coverage)))
+            print('[*] "%s" is the base, containing %d blocks' % (coverage_dirs[i], len(covdb.total_coverage)))
             continue
         new_coverage = covdb.total_coverage - prev_covdb.total_coverage
         prev_covdb = covdb
         num_new_coverage = len(new_coverage)
-        print("[*] %s contains %d new blocks" % (covdb.filename, num_new_coverage))
+        print('[*] "%s" contains %d new blocks' % (coverage_dirs[i], num_new_coverage))
         covdb.collect_function_coverage()
         if num_new_coverage > 0:
             f2a = covdb.get_functions_from_blocks(new_coverage)
