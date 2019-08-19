@@ -28,11 +28,10 @@ def wrap_get_block_coverage(path):
         name = os.path.basename(path)
         output_path = os.path.join(output_dir, name + ".cov")
         if get_block_coverage(path, output_path, command):
-            print("[%d/%d] Coverage collected for %s" % (len(os.listdir(output_dir)) - num_existing_files,
-                                                         num_files, name))
-            return output_path
+            return 1
         else:
-            raise Exception("[!] Error encountered, stopping")
+            print("[!] Error occurred on seed: %s" % path)
+            return 0
     except KeyboardInterrupt:
         pool.terminate()
 
@@ -202,9 +201,16 @@ if __name__ == "__main__":
                 print("[*] %d files to process:" % num_files)
 
             pool = multiprocessing.Pool(num_workers)
-            pool.map(wrap_get_block_coverage, files_to_process)
+            return_stream = pool.imap(wrap_get_block_coverage, files_to_process)
+            for i, path in enumerate(files_to_process):
+                if return_stream.next():
+                    sys.stdout.write("\r[%d/%d] Coverage collected for %s"
+                                     % (i+1, num_files, path))
+                    sys.stdout.flush()
+            sys.stdout.write("\n")
             pool.close()
             pool = None
+
             if continuously_monitor:
                 time.sleep(2)
             else:
