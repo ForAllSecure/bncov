@@ -29,6 +29,49 @@ USAGE_HINT = """[*] In the python shell, do `import bncov` to use
     You can also import coverage.py for coverage analysis in headless scripts.
     Please report any bugs via the git repo."""
 
+
+# Helpers for scripts
+def get_bv(target_filename, quiet=True):
+    """Return a BinaryView of target_filename"""
+    if not os.path.exists(target_filename):
+        print("[!] Couldn't find target file %s..." % target_filename)
+        return None
+    if not quiet:
+        print("=== LOADING DATA ===")
+        sys.stdout.write("[B] Loading Binary Ninja view of %s... " % target_filename)
+        sys.stdout.flush()
+        start = time()
+    bv = BinaryViewType.get_view_of_file(target_filename)
+    if not quiet:
+        bv.update_analysis_and_wait()
+        print("finished in %.02f seconds" % (time() - start))
+    return bv
+
+
+def get_covdb(bv, coverage_directory, quiet=True):
+    """Return a CoverageDB based on bv and directory"""
+    if not quiet:
+        sys.stdout.write("[C] Creating coverage db from directory %s..." % coverage_directory)
+        sys.stdout.flush()
+        start = time()
+    covdb = CoverageDB(bv)
+    covdb.add_directory(coverage_directory)
+    if not quiet:
+        duration = time() - start
+        num_files = len(os.listdir(coverage_directory))
+        print(" finished (%d files) in %.02f seconds" % (num_files, duration))
+    return covdb
+
+
+def save_bndb(bv, bndb_name=None):
+    """Save current BinaryView to .bndb"""
+    if bndb_name is None:
+        bndb_name = os.path.basename(bv.file.filename)  # filename may be a .bndb already
+    if not bndb_name.endswith('.bndb'):
+        bndb_name += ".bndb"
+    bv.create_database(bndb_name)
+
+
 # Globals and functions managing them:
 watcher = None
 watching = False
@@ -375,10 +418,14 @@ def show_coverage_report(bv):
     title = "Coverage Report for %s" % covdb.module_name
     report = "%d Functions, %d blocks covered of %d total\n" % (num_functions, blocks_covered, blocks_total)
     function_dict = {f.name: f for f in bv.functions}
-    max_name_length = max([len(name) for name in covdb.function_stats.keys()])
-    for name, stats in sorted(covdb.function_stats.items(), key=lambda x: x[1].coverage_percent, reverse=True):
+    name_dict = {}
+    for f in bv.functions:
+        name_dict[f.name] = f.symbol.short_name
+    max_name_length = max([len(name) for name in name_dict.values()])
+    for mangled_name, stats in sorted(covdb.function_stats.items(), key=lambda x: x[1].coverage_percent, reverse=True):
+        name = name_dict[mangled_name]
         pad = " " * (max_name_length - len(name))
-        function_addr = function_dict[name].start
+        function_addr = function_dict[mangled_name].start
         report += "  0x%08x  %s%s : %.2f%% coverage\t( %-3d / %3d blocks)\n" % \
                   (function_addr, name, pad, stats.coverage_percent, stats.blocks_covered, stats.blocks_total)
     show_plain_text_report(title, report)
