@@ -8,7 +8,7 @@ from binaryninja import *
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 import bncov.coverage as coverage
 
-# This script prints the number of frontier blocks by function
+# Basic demo script: print the number of frontier blocks by function
 
 if __name__ == "__main__":
     USAGE = "%s <target_file> <coverage_dir>" % sys.argv[0]

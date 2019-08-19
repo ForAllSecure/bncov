@@ -11,14 +11,6 @@ import bncov.coverage as coverage
 
 # This script compares block coverage, given a target and two directories of coverage files
 USAGE = "%s <target_file> <coverage_dir1> <coverage_dir2>" % sys.argv[0]
-if len(sys.argv) != 4:
-    print(USAGE)
-    exit()
-
-# Loading .bndb's also works, and is faster
-target_filename = sys.argv[1]
-covdir1 = sys.argv[2]
-covdir2 = sys.argv[3]
 
 
 # It's MUCH faster to save/load CoverageDBs, helpful for multiple analyses over coverage sets
@@ -46,16 +38,6 @@ def get_coverage_db(dirname, bv):
         num_files = len(os.listdir(dirname))
         print(" finished (%d files) in %.02f seconds" % (num_files, duration))
 
-        try:
-            import msgpack  # dependency for save_to_file
-            sys.stdout.write("[S] Saving coverage object to file '%s'..." % covdb_name)
-            sys.stdout.flush()
-            start = time.time()
-            covdb.save_to_file(covdb_name)
-            duration = time.time() - start
-            print(" finished in %.02f seconds" % duration)
-        except ImportError:
-            pass
     return covdb
 
 
@@ -67,22 +49,7 @@ def print_function_blocks(covdb, block_set):
         print("    %s: %s" % (pretty_name, ["0x%x" % b for b in blocks]))
 
 
-if __name__ == "__main__":
-    if not os.path.exists(target_filename):
-        print("[!] Couldn't find target file %s..." % target_filename)
-        print("    Check that target_filename (and covdirs) in the script are correct")
-        exit()
-    print("=== LOADING DATA ===")
-    sys.stdout.write("[B] Loading Binary Ninja view of %s..." % target_filename)
-    sys.stdout.flush()
-    start = time.time()
-    bv = BinaryViewType.get_view_of_file(target_filename)
-    bv.update_analysis_and_wait()
-    print("finished in %.02f seconds" % (time.time() - start))
-
-    covdb1 = get_coverage_db(covdir1, bv)
-    covdb2 = get_coverage_db(covdir2, bv)
-
+def compare_covdbs(covdb1, covdb2):
     print("=== COMPARISON ===")
     print("[*] %s and %s have %d blocks in common" %
           (covdir1, covdir2, len(covdb1.total_coverage & covdb2.total_coverage)))
@@ -95,3 +62,35 @@ if __name__ == "__main__":
     print("[2] %d Blocks only in %s:" % (len(only_2), covdir2))
     print_function_blocks(covdb2, only_2)
 
+
+if __name__ == "__main__":
+    if len(sys.argv) != 4:
+        print(USAGE)
+        exit()
+
+    # Loading .bndb's also works, and is faster
+    target_filename = sys.argv[1]
+    covdir1 = sys.argv[2]
+    covdir2 = sys.argv[3]
+
+    if not os.path.exists(target_filename):
+        print("[!] Couldn't find target file \"%s\"..." % target_filename)
+        print("    Check that target_filename is correct")
+        exit(1)
+    for covdir in [covdir1, covdir2]:
+        if not os.path.exists(covdir):
+            print("[!] Couldn't find coverage directory \"%s\"..." % covdir)
+            print("    Check that covdirs specified are correct")
+            exit(1)
+
+    print("=== LOADING DATA ===")
+    sys.stdout.write("[B] Loading Binary Ninja view of %s..." % target_filename)
+    sys.stdout.flush()
+    start = time.time()
+    bv = BinaryViewType.get_view_of_file(target_filename)
+    bv.update_analysis_and_wait()
+    print("finished in %.02f seconds" % (time.time() - start))
+
+    covdb1 = get_coverage_db(covdir1, bv)
+    covdb2 = get_coverage_db(covdir2, bv)
+    compare_covdbs(covdb1, covdb2)
