@@ -85,7 +85,7 @@ def parse_drcov_file(filename, module_name, module_base, module_blocks, debug=Fa
                     blocks.add(cur_addr)
                     cur_addr += module_blocks[cur_addr]
                 else:
-                    cur_addr += 1  # TODO: find more efficient way without querying bv?
+                    cur_addr += 1
     num_blocks_found = len(blocks)
     if debug:
         if module_id is None:
