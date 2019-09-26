@@ -84,9 +84,8 @@ visualize them!
 
 ## Visualizing Coverage
 
-If somehow you've gotten this far and not downloaded/copied this repository to
-your plugins directory, go ahead and do that now
-([Read more about that here](https://docs.binary.ninja/guide/plugins/index.html#using-plugins)).
+If somehow you've gotten this far and not installed the plugin in Binary Ninja,
+go ahead and do that now ([Read more about that here](https://docs.binary.ninja/guide/plugins/index.html#using-plugins)).
 
 Then open up Binary Ninja and open the non-instrumented target we made earlier.
 You should be able to right-click and see near

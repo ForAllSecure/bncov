@@ -14,9 +14,10 @@ combined symbolic execution and fuzzing system, check us out at
 
 ## Installation
 
-1. Just clone or copy this directory into your binja plugins folder!
+ - The easiest is just install via the Binary Ninja plugin manager! Alternatively: 
+ - Clone or copy this directory into your binja plugins folder.
 ([More detailed instructions here](https://docs.binary.ninja/guide/plugins/index.html#using-plugins))
-2. (Optional) pip install msgpack if you want to enable loading/saving
+ - (Optional) pip install msgpack if you want to enable loading/saving
 coverage database files.
 
 ## Usage

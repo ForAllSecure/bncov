@@ -346,7 +346,7 @@ def background_import_dir_and_watch(bv):
 
 
 def import_saved_covdb(bv, filepath=None):
-    """Import a previously-generated and saved .covdb (fast but requires msgpack)""" 
+    """Import a previously-generated and saved .covdb (fast but requires msgpack)"""
     try:
         import msgpack
     except ImportError:
@@ -417,6 +417,8 @@ def show_coverage_report(bv):
     num_functions, blocks_covered, blocks_total = covdb.get_overall_function_coverage()
     title = "Coverage Report for %s" % covdb.module_name
     report = "%d Functions, %d blocks covered of %d total\n" % (num_functions, blocks_covered, blocks_total)
+    report_html = "<h3>%d Functions, %d blocks covered of %d total</h3>\n" % (num_functions, blocks_covered, blocks_total)
+    report_html += "<table>\n"
     function_dict = {f.name: f for f in bv.functions}
     name_dict = {}
     for f in bv.functions:
@@ -428,7 +430,11 @@ def show_coverage_report(bv):
         function_addr = function_dict[mangled_name].start
         report += "  0x%08x  %s%s : %.2f%% coverage\t( %-3d / %3d blocks)\n" % \
                   (function_addr, name, pad, stats.coverage_percent, stats.blocks_covered, stats.blocks_total)
-    show_plain_text_report(title, report)
+        report_html += "<tr><td><a href='binaryninja:?expr=0x%x'>0x%08x</a></td><td>%s</td><td>%.2f%% coverage</td><td>%-3d / %3d blocks</td></tr>\n" % \
+                  (function_addr, function_addr, name, pad, stats.coverage_percent, stats.blocks_covered, stats.blocks_total)
+
+    report_html += "<table>\n"
+    show_html_text_report(title, report_html, plaintext=report)
 
 
 # Register plugin commands
