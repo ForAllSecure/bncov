@@ -129,8 +129,7 @@ if __name__ == "__main__":
 
     # if no output dir provided, just name it based on seed dir
     if len(script_options) == 1:
-        if to_process.endswith("/"):
-            to_process = to_process[:-1]
+        to_process = os.path.normpath(to_process)
         output_dir = to_process + "-cov"
     else:
         output_dir = script_options[1]

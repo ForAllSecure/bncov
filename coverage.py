@@ -118,7 +118,8 @@ class CoverageDB(object):
             if not matching_functions:
                 print("[!] No functions found containing block start 0x%x" % addr)
             else:
-                functions.setdefault(matching_functions[0].name, []).append(addr)
+                for function_obj in matching_functions:
+                    functions.setdefault(function_obj.name, []).append(addr)
         return functions
 
     def get_trace_blocks(self, trace_name):

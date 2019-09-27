@@ -49,13 +49,13 @@ def get_covdb(bv, coverage_directory):
 
 if __name__ == "__main__":
     target_filename = sys.argv[1]
-    seed_dir = sys.argv[2]
+    seed_dir = os.path.normpath(sys.argv[2])
     coverage_dir = seed_dir + "-cov"
     output_dir = seed_dir + "-bmin"
     if len(sys.argv) >= 4:
-        coverage_dir = sys.argv[3]
+        coverage_dir = os.path.normpath(sys.argv[3])
     if len(sys.argv) == 5:
-        output_dir = sys.argv[4]
+        output_dir = os.path.normpath(sys.argv[4])
 
     script_start = time.time()
     bv = get_bv(target_filename)

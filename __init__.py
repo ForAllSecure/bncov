@@ -37,19 +37,21 @@ def get_bv(target_filename, quiet=True):
         print("[!] Couldn't find target file %s..." % target_filename)
         return None
     if not quiet:
-        print("=== LOADING DATA ===")
         sys.stdout.write("[B] Loading Binary Ninja view of %s... " % target_filename)
         sys.stdout.flush()
         start = time()
     bv = BinaryViewType.get_view_of_file(target_filename)
+    bv.update_analysis_and_wait()
     if not quiet:
-        bv.update_analysis_and_wait()
         print("finished in %.02f seconds" % (time() - start))
     return bv
 
 
 def get_covdb(bv, coverage_directory, quiet=True):
     """Return a CoverageDB based on bv and directory"""
+    if not os.path.exists(coverage_directory):
+        print("[!] Couldn't find coverage directory \"%s\"..." % coverage_directory)
+        return None
     if not quiet:
         sys.stdout.write("[C] Creating coverage db from directory %s..." % coverage_directory)
         sys.stdout.flush()
