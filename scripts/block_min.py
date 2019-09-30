@@ -15,39 +15,11 @@ USAGE += "\n  Calculate minimal set of files that cover all blocks"
 # if coverage_directory not specified, assume <seed_directory>-cov
 # if output_dir not specified, use <seed_directory>-bmin
 
-if len(sys.argv) not in [3, 4, 5]:
-    print(USAGE)
-    exit(1)
-
-
-def get_bv(target_filename):
-    if not os.path.exists(target_filename):
-        print("[!] Couldn't find target file %s..." % target_filename)
-        exit(1)
-    print("=== LOADING DATA ===")
-    sys.stdout.write("[B] Loading Binary Ninja view of %s... " % target_filename)
-    sys.stdout.flush()
-    start = time.time()
-    bv = BinaryViewType.get_view_of_file(target_filename)
-    bv.update_analysis_and_wait()
-    print("finished in %.02f seconds" % (time.time() - start))
-    return bv
-
-
-def get_covdb(bv, coverage_directory):
-    """Load coverage from directory"""
-    sys.stdout.write("[C] Creating coverage db from directory %s..." % coverage_directory)
-    sys.stdout.flush()
-    start = time.time()
-    covdb = bncov.coverage.CoverageDB(bv)
-    covdb.add_directory(coverage_directory)
-    duration = time.time() - start
-    num_files = len(os.listdir(coverage_directory))
-    print(" finished (%d files) in %.02f seconds" % (num_files, duration))
-    return covdb
-
-
 if __name__ == "__main__":
+    if len(sys.argv) not in [3, 4, 5]:
+        print(USAGE)
+        exit(1)
+
     target_filename = sys.argv[1]
     seed_dir = os.path.normpath(sys.argv[2])
     coverage_dir = seed_dir + "-cov"
@@ -58,8 +30,8 @@ if __name__ == "__main__":
         output_dir = os.path.normpath(sys.argv[4])
 
     script_start = time.time()
-    bv = get_bv(target_filename)
-    covdb = get_covdb(bv, coverage_dir)
+    bv = bncov.get_bv(target_filename)
+    covdb = bncov.get_covdb(bv, coverage_dir)
 
     seed_paths = [os.path.join(seed_dir, filename) for filename in os.listdir(seed_dir)]
     seed_sizes = {seed_path: os.path.getsize(seed_path) for seed_path in seed_paths}

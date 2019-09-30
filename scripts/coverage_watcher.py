@@ -7,7 +7,7 @@ import os
 from binaryninja import *
 # this line allows these scripts to be run portably on python2/3
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-import bncov.coverage as coverage
+import bncov
 
 
 def get_duration():
@@ -51,23 +51,8 @@ if __name__ == "__main__":
 
     target_filename = sys.argv[1]
     coverage_dir = sys.argv[2]
-    print("=== LOADING DATA ===")
-    sys.stdout.write("[*] Loading Binary Ninja view of %s..." % target_filename)
-    sys.stdout.flush()
-    start = time.time()
-    bv = BinaryViewType.get_view_of_file(target_filename)
-    bv.update_analysis_and_wait()
-    duration = time.time() - start
-    print("finished in %.02f seconds" % duration)
-
-    sys.stdout.write("[*] Creating coverage db from directory %s..." % coverage_dir)
-    sys.stdout.flush()
-    start = time.time()
-    covdb = coverage.CoverageDB(bv)
-    covdb.add_directory(coverage_dir)
-    duration = time.time() - start
-    num_files = len(os.listdir(coverage_dir))
-    print(" finished (%d files) in %.02f seconds" % (num_files, duration))
+    bv = bncov.get_bv(target_filename, quiet=False)
+    covdb = bncov.get_covdb(bv, coverage_dir, quiet=False)
 
     script_start = time.time()
     watch_coverage(covdb)

@@ -6,7 +6,7 @@ import sys
 from binaryninja import *
 # this line allows these scripts to be run portably on python2/3
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-import bncov.coverage as coverage
+import bncov
 
 # Basic demo script: print the number of frontier blocks by function
 
@@ -17,16 +17,10 @@ if __name__ == "__main__":
         exit()
 
     target_filename = sys.argv[1]
-    dirname = sys.argv[2]
+    covdir = sys.argv[2]
 
-    print("[*] Loading %s in Binary Ninja" % target_filename)
-    bv = BinaryViewType.get_view_of_file(target_filename)
-    bv.update_analysis_and_wait()
-
-    covdb = coverage.CoverageDB(bv)
-    covdb.add_directory(dirname)
-    num_files = len(os.listdir(dirname))
-    print("[*] Loaded %d files from %s" % (num_files, dirname))
+    bv = bncov.get_bv(target_filename, quiet=False)
+    covdb = bncov.get_covdb(bv, covdir, quiet=False)
 
     frontier = covdb.get_frontier()
     print("[*] %d total frontier blocks found" % len(frontier))
