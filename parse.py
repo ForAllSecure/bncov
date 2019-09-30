@@ -91,7 +91,7 @@ def parse_drcov_ascii_blocks(block_data, filename, module_id, module_base, modul
         if int_base:
             block_offset = int(block_offset, int_base)
         else:
-            if 'x'.encode() in block_offset:
+            if b'x' in block_offset:
                 int_base = 16
             else:
                 int_base = 10
