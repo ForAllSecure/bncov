@@ -434,7 +434,7 @@ def show_coverage_report(bv):
                   (function_addr, function_addr, name, pad, stats.coverage_percent, stats.blocks_covered, stats.blocks_total)
 
     report_html += "</table>\n"
-    show_html_text_report(title, report_html, plaintext=report)
+    bv.show_html_report(title, report_html, plaintext=report)
 
 
 # Register plugin commands
