@@ -430,7 +430,7 @@ def show_coverage_report(bv):
         function_addr = function_dict[mangled_name].start
         report += "  0x%08x  %s%s : %.2f%% coverage\t( %-3d / %3d blocks)\n" % \
                   (function_addr, name, pad, stats.coverage_percent, stats.blocks_covered, stats.blocks_total)
-        report_html += "<tr><td><a href='binaryninja:?expr=0x%x'>0x%08x</a></td><td>%s</td><td>%.2f%% coverage</td><td>%-3d / %3d blocks</td></tr>\n" % \
+        report_html += "<tr><td><a href='binaryninja://?expr=0x%x'>0x%08x</a></td><td>%s</td><td>%.2f%% coverage</td><td>%-3d / %3d blocks</td></tr>\n" % \
                   (function_addr, function_addr, name, stats.coverage_percent, stats.blocks_covered, stats.blocks_total)
 
     report_html += "</table>\n"
