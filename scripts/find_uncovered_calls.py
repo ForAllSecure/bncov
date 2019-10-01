@@ -21,12 +21,20 @@ else:
     except AttributeError:
         def which_func(x): return None
 
-path_to_addr2line = ""  # if addr2line isn't in your path, you can put the path to the binary here
-# do a simple str.replace(old, new) over the original source path
+# if addr2line isn't in your path, you can put the path to the binary here
+path_to_addr2line = ""
+# this scripts does a string replacement over the original source path (e.g. source_path.replace(old, new) )
 source_path_old = ""
 source_path_new = ""
 
 USAGE = "USAGE: %s <target_file> <coverage directory>" % sys.argv[0]
+USAGE += "\n\nThis script requires four things:" \
+         "\n    1. Target binary with debug symbols (compile with -g)" \
+         "\n    2. The *exact* source files used to build the target" \
+         "\n    3. A directory of coverage files (drcov format)" \
+         "\n    4. The addr2line binary (in your path or specified in the script)" \
+         "\nIf the source files are in a different place than when the target was compiled," \
+         "\nyou'll have to modify the source_path_[old|new] variables in the script to translate paths"
 
 
 def get_uncovered_descendants(covdb, root_block, max_depth=1):
@@ -96,7 +104,7 @@ def get_uncovered_calls(covdb, max_distance=2):
                                 uncovered_calls[inst_addr] = str(disassembly_line)
                                 break
                     block_offset += inst_size
-    else:  # check for calls that are within max_distance edges of the frontier
+    else:  # default: check for calls that are within max_distance edges of the frontier
         blocks_checked = set()
         for block_start in covdb.get_frontier():
 
@@ -127,13 +135,6 @@ def get_source_line(target_binary_path, address):
     Filepath portion may be "" or "??".
     Line portion may have trailing information such as "168 (discriminator 1)", or may be "?".
     """
-    global path_to_addr2line
-    # find addr2line
-    if not path_to_addr2line:
-        path_to_addr2line = which_func("addr2line")
-        if path_to_addr2line is None:
-            return None
-
     # Run addr2line to get source line info
     cmd = "%s -e %s -a 0x%x" % (path_to_addr2line, target_binary_path, address)
     p = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -142,40 +143,38 @@ def get_source_line(target_binary_path, address):
         output = output.decode()
         error = error.decode()
     if error:
-        print("[!] stderr from addr2line: %s" % error)
+        print("[!] stderr from addr2line: \"%s\"" % error)
         return None
     source_line_info = output.strip().split('\n')[-1]
     return source_line_info
 
 
 warnings_given = {}  # warn only first time on failures
+source_hits = 0  # for warning that the line table is probably absent
 def print_source_line(target_binary_path, address, num_context_lines=5):
     """Print source line for address if possible, prints warning on failure.
 
     Uses addr2line under the hood to do offset-to-source mapping.
     Returns True on success, False on failure."""
-    global warnings_given
+    global warnings_given, source_hits
 
     source_line_info = get_source_line(target_binary_path, address)
     if source_line_info is None:
-        if "addr2line" not in warnings_given:
-            print('[!] ERROR: addr2line not found, will not do source mapping')
-            print('    Either put addr2line in the path or set the variable "path_to_addr2line" in this script')
-            warnings_given['addr2line'] = True
         return False
-    print('Source line: %s' % source_line_info)
     original_filepath, target_line_number = source_line_info.split(':')
     if original_filepath == "" or "??" in original_filepath:
-        print("[*] No source file mapping for address 0x%x" % address)
+        print("[*] No source mapping (\"%s\") for address 0x%x" % (source_line_info, address))
         return False
+    source_hits += 1
     if os.sep not in original_filepath:  # observed on library files with no path
         if original_filepath not in warnings_given:
-            print('[*] Note: Original source file appears built-in: %s' % original_filepath)
+            print('[*] Note: Original source file appears built-in (\"%s\")' % original_filepath)
             warnings_given[original_filepath] = True
         return False
     if target_line_number == "?":
-        # source line will show the "?" for line number above, no explicit warning needed
+        print("[*] No source line mapping (\"%s\") for address 0x%x" % (source_line_info, address))
         return False
+    print('Source line: %s' % source_line_info)
 
     # fix up filepath, which may have ".." naturally, or "~" if we use it in the source path replacement
     filepath = os.path.abspath(original_filepath)
@@ -190,7 +189,7 @@ def print_source_line(target_binary_path, address, num_context_lines=5):
             if source_path_old and source_path_new:
                 print('    After path translation, looked for it at: "%s"' % filepath)
             else:
-                print('    You can specify a path replacement in the script with source_path_new/old')
+                print('    You can specify a path replacement in the script with source_path_[new|old]')
             warnings_given[original_filepath] = (source_path_old, source_path_new)
         return False
 
@@ -226,15 +225,42 @@ if __name__ == "__main__":
         print(USAGE)
         exit()
 
+    if path_to_addr2line == "":
+        path_to_addr2line = which_func("addr2line")
+        if path_to_addr2line is None:
+            print("ERROR: addr2line not found in path and not hardcoded, cannot resolve addresses to lines without it.")
+            print("       Please put addr2line in your path or update the path_to_addr2line variable in this script.")
+            exit(1)
+
     target_filename = sys.argv[1]
     covdir = sys.argv[2]
 
     bv = bncov.get_bv(target_filename, quiet=False)
+    original_filepath = bv.file.original_filename
+    if not os.path.exists(original_filepath):
+        print("ERROR: Original file %s not found (often due to a .bndb with a stale path)" % original_filepath)
+        print("       This script requires the original target and that it has debug symbols.")
+        exit(1)
+
     covdb = bncov.get_covdb(bv, covdir, quiet=False)
 
     uncovered_calls = get_uncovered_calls(covdb)
+    any_source_found = False
     for i, item in enumerate(uncovered_calls.items()):
         address, disassembly = item
         function_name = bv.get_functions_containing(address)[0].symbol.short_name
         print('\n[%d] %s: 0x%x: "%s"' % (i, function_name, address, disassembly))
-        print_source_line(bv.file.original_filename, address)
+        if print_source_line(original_filepath, address):
+            any_source_found = True
+
+    if source_hits == 0:
+        print("WARNING: No source paths were resolved, double check that the target has debug information")
+    elif any_source_found is False:
+        print("WARNING: No address-to-line mappings succeeded, check the source paths given for the calls.")
+        if source_path_old == "" and source_path_new == "":
+            print("         If the target was not built on this machine,"
+                  " set the variables `source_path_old` and `source_path_new` to map source paths to local files")
+        else:
+            print("         Check that your source path translation is correct (forgetting trailing slashes is common)")
+            print("         source_path_old: \"%s\"" % source_path_old)
+            print("         source_path_new: \"%s\"" % source_path_new)
