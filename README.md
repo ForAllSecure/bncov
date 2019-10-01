@@ -1,9 +1,10 @@
 # bncov - Scriptable Binary Ninja plugin for coverage analysis and visualization
 
 bncov provides a scriptable interface for bringing together coverage
-information with Binary Ninja's static analysis and visualization.  It was
-designed for interactive GUI use as well as for factoring into larger analysis
-tasks and standalone scripts.
+information with Binary Ninja's static analysis and visualization. Beyond
+visualization, the abstractions in bncov allow for programmatic reasoning
+about coverage. It was designed for interactive GUI use as well as for
+factoring into larger analysis tasks and standalone scripts.
 
 ![Demo Overview](/pictures/demo_overview.gif)
 
@@ -14,7 +15,12 @@ combined symbolic execution and fuzzing system, check us out at
 
 ## Installation
 
- - The easiest is just install via the Binary Ninja plugin manager! Alternatively: 
+The easiest way is to install via the Binary Ninja plugin manager!
+The only difference when installing via plugin manager is that wherever
+you see `import bncov`, you'll do `import ForAllSecure_bncov as bncov`.
+
+Alternatively:
+
  - Clone or copy this directory into your binja plugins folder.
 ([More detailed instructions here](https://docs.binary.ninja/guide/plugins/index.html#using-plugins))
  - (Optional) pip install msgpack if you want to enable loading/saving
@@ -28,15 +34,18 @@ First collect coverage information in DynamoRIO's drcov format
 To use in Binary Ninja GUI:
 
 1. Open the target binary, then import coverage files using one of
-the commands in `bncov/Coverage Import/Import \*`
+the commands in `bncov/Coverage Data/Import \*`
 either from the Tools menu or from the context (right-click) menu.
 2. Explore the coverage visualization and explore additional analyses from
 the right-click menu or with the built-in interpreter and `import bncov`.
 
 Scripting:
 
-1. `import bncov` and write scripts with the CoverageDB class in `coverage.py`,
-see examples in the `scripts` folder.
+1. Ensure bncov's parent directory is in your module search path
+OR add it to sys.path at the top of your script like this:
+`sys.path.append(os.path.split(os.path.normpath('/path/to/bncov'))[0])`
+2. `import bncov` and write scripts with the CoverageDB class in
+`coverage.py`, check out the `scripts` folder for examples.
 
 ## Screenshots
 
@@ -64,7 +73,7 @@ when new coverage files appear
 ![Highlight Frontier Blocks](/pictures/Frontier-Highlight.png)
 
 * See coverage reports on functions of interest or what functionality may not
-be hit, or write your own analyses for headless scripting
+be hit, or write your own analyses for headless scripting.
 
 ![Block Coverage Report](/pictures/Coverage-Report.png)
 
@@ -83,9 +92,8 @@ only used for saving and loading the CoverageDB class to a file.  It trades
 taking a large amount of disk space for a significant speedup of subsequent
 analyses as opposed to loading/analyzing directories of coverage files.
 
-This codebase is written for Python 2.7, with an effort to be compatible with
-Python 3.  Please file an issue if you encounter an incompatibility that
-isn't easily fixed by `2to3` or `futurize`.
+This codebase was written for Python 2.7, but should now be compatible with
+Python 3.  Please file an issue if you encounter any incompatibility problems.
 
 ## Scripting
 
