@@ -19,7 +19,8 @@ USAGE += "\n      --debug                 Print stdout and stderr of target"
 # Path to DynamoRIO root
 path_to_dynamorio = os.getenv("DYNAMORIO", "/mnt/hgfs/vmshare/dr/")
 if not os.path.exists(path_to_dynamorio):
-    print("[!] DynamoRIO not found at '%s', please update in the script (%s)" % (path_to_dynamorio, sys.argv[0]))
+    print("[!] DynamoRIO not found at '%s'" % path_to_dynamorio +
+          "please update in the script (%s) or set environment variable DYNAMORIO to point to path" % sys.argv[0])
     exit()
 
 
@@ -94,9 +95,6 @@ if __name__ == "__main__":
     script_options = sys.argv[1:sys.argv.index("--")]
     target_invocation = " ".join(sys.argv[sys.argv.index("--")+1:])
 
-    # parse script options
-    to_process = script_options[0]
-
     # parse and remove optional switches
     num_workers = 4
     continuously_monitor = False
@@ -128,6 +126,7 @@ if __name__ == "__main__":
         script_options.pop(debug_index)
 
     # if no output dir provided, just name it based on seed dir
+    to_process = script_options[0]
     if len(script_options) == 1:
         to_process = os.path.normpath(to_process)
         output_dir = to_process + "-cov"
