@@ -1,24 +1,14 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <fcntl.h>
 
-int main(int argc, char **argv) {
-    char buf[100] = {0};
+void fuzz_test(char *buf, int len) {
 
-    if (argc != 2) {
-        printf("USAGE: %s <input_file>\n", argv[0]);
-        return 1;
-    }
+    char* stop_at = buf + len - 8;
 
-    FILE *fp = fopen(argv[1], "rb");
-    if (fp == NULL) {
-        return 2;
-    }
-    
-    if (fgets(buf, sizeof(buf), fp) == NULL) {
-        return 3;
-    }
-
-    for(char* p = buf; *p != 0; p++) {
+    for(char* p = buf; p < stop_at; p++) {
         if (p[0] == 'F')
         if (p[1] == 'u')
         if (p[2] == 'z')
@@ -31,8 +21,29 @@ int main(int argc, char **argv) {
             abort();
         }
     }
+}
 
-    fclose(fp);
+int main(int argc, char **argv) {
+
+    char buf[100] = {0};
+
+    if (argc != 2) {
+        printf("USAGE: %s <input_file>\n", argv[0]);
+        return 1;
+    }
+
+    int fd = open(argv[1], 0);
+    if (fd == -1) {
+      printf("USAGE: %s INPUT_FILE\n", argv[0]);
+      return -1;
+    }
+
+    ssize_t bytes_read = read(fd, buf, sizeof(buf)-1);
+    close(fd);
+
+    if (bytes_read >= 0) {
+      fuzz_test(buf, strlen(buf));
+    }
 
     return 0;
 }

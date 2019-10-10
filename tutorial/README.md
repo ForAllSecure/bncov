@@ -5,6 +5,10 @@ coverage roll in with Binary Ninja.  This is the simplest example and
 won't coverage much in the way of scripting (which you should definitely
 explore later in the `scripts` directory).
 
+If you're so excited to try out bncov that you can't wait any longer, we've
+also included the sample binary with seeds and coverage traces in the
+[example folder](example/).
+
 ## Compiling the Target
 
 The first thing we have to do is compile our target, which is a simple
@@ -161,6 +165,18 @@ hit = '/Users/user/vmshare/bncov/tutorial/output/coverage/id&%000040,src&%000034
 miss = '/Users/user/vmshare/bncov/tutorial/output/coverage/id&%000029,src&%000021,op&%havoc,rep&%16.cov'
 bncov.covdb.trace_dict[hit] - bncov.covdb.trace_dict[miss]
 # output: set([2336L, 2366L, 2351L])
+```
+
+If you wanted to minimize the number of seeds and coverage files to
+only those with unique block coverage, that too is straightforward:
+
+```python
+uniq_traces = {}
+for cur_trace, cur_coverage in bncov.covdb.trace_dict.items():
+    cur_coverage = set(cur_coverage)
+    if cur_coverage not in uniq_traces.values():
+        uniq_traces[cur_trace] = cur_coverage
+#print("%d unique among %d" % (len(uniq_traces), len(bncov.covdb.trace_dict)))
 ```
 
 The bncov plugin can be used to write arbitrary analysis scripts, and it can
