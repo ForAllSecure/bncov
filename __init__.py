@@ -34,10 +34,10 @@ USAGE_HINT = """[*] In the python shell, do `import bncov` to use
 def get_bv(target_filename, quiet=True):
     """Return a BinaryView of target_filename"""
     if not os.path.exists(target_filename):
-        print("[!] Couldn't find target file %s..." % target_filename)
+        print("[!] Couldn't find target file \"%s\"..." % target_filename)
         return None
     if not quiet:
-        sys.stdout.write("[B] Loading Binary Ninja view of %s... " % target_filename)
+        sys.stdout.write("[B] Loading Binary Ninja view of \"%s\"... " % target_filename)
         sys.stdout.flush()
         start = time()
     bv = BinaryViewType.get_view_of_file(target_filename)
@@ -53,7 +53,7 @@ def get_covdb(bv, coverage_directory, quiet=True):
         print("[!] Couldn't find coverage directory \"%s\"..." % coverage_directory)
         return None
     if not quiet:
-        sys.stdout.write("[C] Creating coverage db from directory %s..." % coverage_directory)
+        sys.stdout.write("[C] Creating coverage db from directory \"%s\"..." % coverage_directory)
         sys.stdout.flush()
         start = time()
     covdb = CoverageDB(bv)
