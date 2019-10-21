@@ -1,3 +1,7 @@
+"""
+coverage.py - defines CoverageDB, which encapsulates coverage data and basic methods for loading/presenting that data
+"""
+
 from __future__ import division, absolute_import
 
 import os
@@ -11,8 +15,6 @@ except ImportError:
     file_backing_disabled = True
     # print("[!] bncov: without msgpack module, CoverageDB save/load to file is disabled")
 
-# This file contains CoverageDB, which contains all coverage data and methods
-
 FuncCovStats = namedtuple("FuncCovStats", "coverage_percent blocks_covered blocks_total")
 
 
@@ -20,52 +22,107 @@ class CoverageDB(object):
 
     def __init__(self, bv, filename=None):
         self.bv = bv
+        self.module_name = os.path.basename(bv.file.original_filename)
+        self.module_base = bv.start
         if filename:
             self.load_from_file(filename)
         else:
-            self.module_name = (os.path.basename(bv.file.original_filename)).encode()
-            self.module_base = bv.start
-            # map basic blocks in module to their size
+            # map basic blocks in module to their size, used for disambiguating dynamic block coverage
             self.module_blocks = {bb.start: bb.length for bb in bv.basic_blocks}
-            self.trace_dict = {}  # map filename to trace (set of addrs of basic blocks hit)
-            self.block_dict = {}  # map address of start of basic block to filenames containing it
-            self.function_stats = {}
-            self.coverage_files = []
+            self.block_dict = {}  # map address of start of basic block to list of traces that contain it
             self.total_coverage = set()  # overall coverage set of addresses
-            self.frontier = set()
-            self.filename = ""  # the path to file this object is loaded from/saved to ("" otherwise)
+            self.coverage_files = []  # list of trace names (filepaths)
+            self.trace_dict = {}  # map filename to the set of addrs of basic blocks hit
+            self.function_stats = {}  # deferred - populated by self.collect_function_coverage()
+            self.frontier = set()  # deferred - populated by self.get_frontier()
+            self.filename = ""  # the path to file this covdb is loaded from/saved to ("" otherwise)
 
     # Save/Load covdb functions
+    def save_to_file(self, filename):
+        """Save only the bare minimum needed to reconstruct this CoverageDB.
+
+        This serializes the data to a single file and cab reduce the disk footprint of
+        block coverage significantly (depending on overlap and number of files)."""
+        if file_backing_disabled:
+            raise Exception("[!] Can't save/load coverage db files without msgpack. Try `pip install msgpack`")
+        save_dict = dict()
+        save_dict["version"] = 1  # serialized covdb version
+        save_dict["module_name"] = self.module_name
+        save_dict["module_base"] = self.module_base
+        save_dict["coverage_files"] = self.coverage_files
+        # save tighter version of block dict {int: int} vice {int: str}
+        block_dict_to_save = {}
+        file_index_map = {filepath: self.coverage_files.index(filepath) for filepath in self.coverage_files}
+        for block, trace_list in self.block_dict.items():
+            trace_id_list = [file_index_map[name] for name in trace_list]
+            block_dict_to_save[block] = trace_id_list
+        save_dict["block_dict"] = block_dict_to_save
+        # write packed version to file
+        with open(filename, "wb") as f:
+            msgpack.dump(save_dict, f)
+            self.filename = filename
+
     def load_from_file(self, filename):
-        """Load coverage db from a save covdb file. Requires msgpack"""
+        """Reconstruct a CoverageDB using the current BinaryView and a CoverageDB saved to disk using .save_to_file()"""
         if file_backing_disabled:
             raise Exception("[!] Can't save/load coverage db files without msgpack. Try `pip install msgpack`")
         self.filename = filename
-        with open(filename, "r") as f:
-            object_dict = msgpack.load(f)
-        self.module_name = object_dict["module_name"]
-        self.module_base = object_dict["module_base"]
-        self.module_blocks = object_dict["module_blocks"]
-        self.trace_dict = {k: set(v) for k, v in object_dict["trace_dict"].items()}
-        self.block_dict = object_dict["block_dict"]
-        self.function_stats = object_dict["function_stats"]
-        self.coverage_files = object_dict["coverage_files"]
-        self.total_coverage = set(object_dict["total_coverage"])
-        self.frontier = set(object_dict["frontier"])
+        with open(filename, "rb") as f:
+            loaded_dict = msgpack.load(f, raw=False)
+        if "version" not in loaded_dict:
+            self._old_load_from_file(loaded_dict)
+        # Do sanity checks
+        loaded_version = int(loaded_dict["version"])
+        if loaded_version != 1:
+            raise Exception("[!] Unsupported version number: %d" % loaded_version)
 
-    def save_to_file(self, filename):
-        """Save coverage db object to a file (which can be quite large). Requires msgpack"""
-        if file_backing_disabled:
-            raise Exception("[!] Can't save/load coverage db files without msgpack. Try `pip install msgpack`")
-        # remove non-serializable BinaryView member
-        object_dict = {k: v for k, v in self.__dict__.items() if k != 'bv'}
-        # translate sets to lists
-        object_dict['frontier'] = list(object_dict['frontier'])
-        object_dict['total_coverage'] = list(object_dict['total_coverage'])
-        object_dict["trace_dict"] = {k: list(v) for k, v in object_dict['trace_dict'].items()}
-        with open(filename, "w") as f:
-            msgpack.dump(object_dict, f)
-            self.filename = filename
+        loaded_module_name = loaded_dict["module_name"]
+        if loaded_module_name != self.module_name:
+            raise Exception("[!] ERROR: Module name from covdb (%s) doesn't match BinaryView (%s)" %
+                            (loaded_module_name, self.module_name))
+
+        loaded_module_base = loaded_dict["module_base"]
+        if loaded_module_base != self.module_base:
+            raise Exception("[!] ERROR: Module base from covdb (0x%x) doesn't match BinaryView (0x%x)" %
+                            (loaded_module_base, self.module_base))
+
+        # Parse the saved members
+        coverage_files = loaded_dict["coverage_files"]
+        self.coverage_files = coverage_files
+
+        block_dict = dict()
+        loaded_block_dict = loaded_dict["block_dict"]
+        file_index_map = {self.coverage_files.index(filepath): filepath for filepath in self.coverage_files}
+        for block, trace_id_list in loaded_block_dict.items():
+            trace_list = [file_index_map[i] for i in trace_id_list]
+            block_dict[block] = trace_list
+        self.block_dict = block_dict
+
+        # Regen other members from saved members
+        bv = self.bv
+        self.module_blocks = {bb.start: bb.length for bb in bv.basic_blocks}
+        trace_dict = {}
+        for block, trace_list in block_dict.items():
+            for name in trace_list:
+                trace_dict.setdefault(name, set()).add(block)
+        self.trace_dict = trace_dict
+        self.total_coverage = set(block_dict.keys())
+
+        # Other members are blank/empty
+        self.function_stats = {}
+        self.frontier = set()
+
+    def _old_load_from_file(self, loaded_object_dict):
+        """Backwards compatibility for when version numbers weren't saved"""
+        self.module_name = loaded_object_dict["module_name"]
+        self.module_base = loaded_object_dict["module_base"]
+        self.module_blocks = loaded_object_dict["module_blocks"]
+        self.trace_dict = {k: set(v) for k, v in loaded_object_dict["trace_dict"].items()}
+        self.block_dict = loaded_object_dict["block_dict"]
+        self.function_stats = loaded_object_dict["function_stats"]
+        self.coverage_files = loaded_object_dict["coverage_files"]
+        self.total_coverage = set(loaded_object_dict["total_coverage"])
+        self.frontier = set(loaded_object_dict["frontier"])
 
     # Coverage import functions
     def add_file(self, filepath):
@@ -105,7 +162,7 @@ class CoverageDB(object):
             if count <= threshold:
                 rare_blocks.append(block)
         return rare_blocks
- 
+
     def get_block_rarity_dict(self):
         """Return a mapping of blocks to the # of traces that cover it"""
         return {block: len(self.get_traces_from_block(block)) for block in self.total_coverage}
@@ -118,26 +175,31 @@ class CoverageDB(object):
             if not matching_functions:
                 print("[!] No functions found containing block start 0x%x" % addr)
             else:
-                for function_obj in matching_functions:
-                    functions.setdefault(function_obj.name, []).append(addr)
+                functions.setdefault(matching_functions[0].name, []).append(addr)
         return functions
 
     def get_trace_blocks(self, trace_name):
+        """Get the set of basic blocks a trace covers"""
         return self.trace_dict[trace_name]
 
     def get_functions_from_trace(self, trace_name):
+        """Get the list of function names a trace covers"""
         return list(self.get_functions_from_blocks(self.trace_dict[trace_name]).keys())
 
     def get_trace_uniq_blocks(self, trace_name):
+        """Get the set of basic blocks that are only seen in the specified trace"""
         return self.trace_dict[trace_name] & set(self.get_rare_blocks())
 
     def get_trace_uniq_functions(self, trace_name):
+        """Get a list of function names containing basic blocks that are only seen in the specified trace"""
         return list(self.get_functions_from_blocks(self.get_trace_uniq_blocks(trace_name)).keys())
 
     def get_functions_with_rare_blocks(self):
+        """Get a list of function names that contain basic blocks only covered by one trace"""
         return list(self.get_functions_from_blocks(self.get_rare_blocks()).keys())
 
     def get_traces_with_rare_blocks(self):
+        """Get the set of traces that have blocks that are unique to them"""
         traces = set()
         for block in self.get_rare_blocks():
             traces.update(self.get_traces_from_block(block))
@@ -192,7 +254,7 @@ class CoverageDB(object):
             for block in func.basic_blocks:
                 if block.start in self.total_coverage:
                     blocks_covered += 1
-            coverage_percent = (blocks_covered / func_blocks) * 100
+            coverage_percent = (blocks_covered / float(func_blocks)) * 100
             cur_stats = FuncCovStats(coverage_percent, blocks_covered, func_blocks)
             self.function_stats[func.name] = cur_stats
         return self.function_stats

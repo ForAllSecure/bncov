@@ -34,7 +34,7 @@ def parse_drcov_header(header, module_name, filename, debug):
             if debug:
                 print("[DBG] Module table entry: %s" % line.strip())
             for col in columns[1:]:
-                if module_name != "" and module_name.decode() in col:
+                if module_name != "" and module_name in col:
                     module_id = int(columns[0])
                     if debug:
                         print("[DBG] Target module found (%d): %s" % (int(columns[0]), line.strip()))
