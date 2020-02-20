@@ -21,7 +21,7 @@ USAGE_HINT = """[*] In the python shell, do `import bncov` to use
 [*] If you pip install msgpack, you can save/load the covdb (WARNING: files can be large)
 [*] Useful UI-related bncov functions (more are in the Highlights submenu)
     bncov.highlight_set(addr_set, color=None) -
-        Highlight blocks by set basic block start addrs, optional color override
+        Highlight blocks by set of basic block start addrs, optional color override
     bncov.highlight_trace(filepath, color_name="") -
         Highlight one trace file, optionally with a human-readable color_name
     bncov.restore_default_highlights() - Reverts covered blocks to heatmap highlights.
@@ -142,11 +142,14 @@ def highlight_block(block, count=0, color=None):
 
 
 # This is the basic building block for visualization
-def highlight_set(addr_set, color=None, bv=None):
-    """Take a set of addresses and highlight the blocks containing them.
+def highlight_set(addr_set, color=None, bv=None, start_only=True):
+    """Take a set of addresses and highlight the blocks starting at (or containing if start_only=False) those addresses.
 
     You can use this manually, but you'll have to clear your own highlights.
-    bncov.highlight_set(addrs, color=bncov.colors['blue'], bv=bv)"""
+    bncov.highlight_set(addrs, color=bncov.colors['blue'], bv=bv)
+    If you're using this manually just to highlight the blocks containing
+    a group of addresses and aren't worry about overlapping blocks, use start_only=False.
+    """
     if bv is not None:
         binary_view = bv
     else:
@@ -154,8 +157,12 @@ def highlight_set(addr_set, color=None, bv=None):
             print("[!] To use manually, pass in a binary view or set bncov.gbv first")
             return
         binary_view = gbv
+    if start_only:
+        get_blocks = binary_view.get_basic_blocks_starting_at
+    else:
+        get_blocks = binary_view.get_basic_blocks_at
     for addr in addr_set:
-        blocks = binary_view.get_basic_blocks_at(addr)
+        blocks = get_blocks(addr)
         if len(blocks) >= 1:
             for block in blocks:
                 if covdb is not None:
@@ -171,7 +178,7 @@ def highlight_set(addr_set, color=None, bv=None):
 
 
 def clear_highlights(addr_set, bv):
-    """Clear all highlights from the set of blocks"""
+    """Clear all highlights from the set of blocks containing the addrs in addr_set"""
     for addr in addr_set:
         blocks = bv.get_basic_blocks_at(addr)
         for block in blocks:
