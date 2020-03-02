@@ -10,7 +10,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 import bncov.coverage as coverage
 
 # This script compares block coverage, given a target and two directories of coverage files
-USAGE = "%s <target_file> <coverage_dir1> <coverage_dir2>" % sys.argv[0]
+USAGE = "%s <target_file> <first_coverage_dir/file> <second_coverage_dir/file>" % sys.argv[0]
 
 
 # It's MUCH faster to save/load CoverageDBs, helpful for multiple analyses over coverage sets
@@ -23,20 +23,29 @@ def get_coverage_db(dirname, bv):
 
     start = time.time()
     if os.path.exists(covdb_name):
-        sys.stdout.write("[L] Loading coverage from object file %s..." % covdb_name)
+        sys.stdout.write('[L] Loading coverage from object file "%s"...' % covdb_name)
         sys.stdout.flush()
         covdb = coverage.CoverageDB(bv, covdb_name)
         duration = time.time() - start
         num_files = len(covdb.coverage_files)
         print(" finished (%d files) in %.02f seconds" % (num_files, duration))
-    else:
-        sys.stdout.write("[C] Creating coverage db from directory %s..." % dirname)
+    elif os.path.isdir(dirname):
+        sys.stdout.write('[C] Creating coverage db from directory "%s"...' % dirname)
         sys.stdout.flush()
         covdb = coverage.CoverageDB(bv)
         covdb.add_directory(dirname)
         duration = time.time() - start
         num_files = len(os.listdir(dirname))
         print(" finished (%d files) in %.02f seconds" % (num_files, duration))
+    elif os.path.isfile(dirname):
+        sys.stdout.write('[C] Creating coverage db from file "%s"...' % dirname)
+        sys.stdout.flush()
+        covdb = coverage.CoverageDB(bv)
+        covdb.add_file(dirname)
+        duration = time.time() - start
+        print(" finished in %.02f seconds" % duration)
+    else:
+        raise Exception('[!] File "%s" not a file or directory?' % dirname)
 
     return covdb
 
