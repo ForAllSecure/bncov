@@ -15,17 +15,11 @@ def parse_coverage_file(filename, module_name, module_base, module_blocks):
 
 def parse_drcov_header(header, module_name, filename, debug):
     module_table_start = False
-    module_id = None
+    module_ids = []
     for i, line in enumerate(header.split("\n")):
         # Encountering the basic block table indicates end of the module table
         if line.startswith("BB Table"):
-            if debug:
-                break
-            if module_table_start:
-                raise Exception("[!] Didn't find expected target '%s' in the module table in %s" %
-                                (module_name, filename))
-            else:
-                raise Exception("[!] No module table found in %s" % filename)
+            break
         # The first entry in the module table starts with "0", potentially after leading spaces
         if line.strip().startswith("0"):
             module_table_start = True
@@ -35,22 +29,29 @@ def parse_drcov_header(header, module_name, filename, debug):
                 print("[DBG] Module table entry: %s" % line.strip())
             for col in columns[1:]:
                 if module_name != "" and module_name in col:
-                    module_id = int(columns[0])
+                    module_ids.append(int(columns[0]))
                     if debug:
                         print("[DBG] Target module found (%d): %s" % (int(columns[0]), line.strip()))
-            if module_id is not None:
-                break
-    return module_id
+    if not module_table_start:
+        raise Exception('[!] No module table found in "%s"' % filename)
+    if not module_ids and not debug:
+        raise Exception("[!] Didn't find expected target '%s' in the module table in %s" %
+                        (module_name, filename))
+
+    return module_ids
 
 
-def parse_drcov_binary_blocks(block_data, filename, module_id, module_base, module_blocks, debug):
+def parse_drcov_binary_blocks(block_data, filename, module_ids, module_base, module_blocks, debug):
     blocks = set()
     block_data_len = len(block_data)
     blocks_seen = 0
+
     remainder = block_data_len % 8
     if remainder != 0:
         print("[!] Warning: %d trailing bytes left over in %s" % (remainder, filename))
         block_data = block_data[:-remainder]
+    if debug:
+        module_dict = {}
 
     for i in range(0, block_data_len, 8):
         block_offset = unpack("I", block_data[i:i + 4])[0]
@@ -60,7 +61,8 @@ def parse_drcov_binary_blocks(block_data, filename, module_id, module_base, modu
         blocks_seen += 1
         if debug:
             print("%d: 0x%08x 0x%x" % (block_module_id, block_offset, block_size))
-        if block_module_id == module_id and block_addr not in blocks:
+            module_dict[block_module_id] = module_dict.get(block_module_id, 0) + 1
+        if block_module_id in module_ids:
             cur_addr = block_addr
             # traces can contain "blocks" that split and span blocks
             # so we need a fairly comprehensive check to get it right
@@ -70,13 +72,19 @@ def parse_drcov_binary_blocks(block_data, filename, module_id, module_base, modu
                     cur_addr += module_blocks[cur_addr]
                 else:
                     cur_addr += 1
+    if debug:
+        print('[DBG] Block count per-module:')
+        for module_number, blocks_hit in sorted(module_dict.items()):
+            print('    %d: %d' % (module_number, blocks_hit))
     return blocks, blocks_seen
 
 
-def parse_drcov_ascii_blocks(block_data, filename, module_id, module_base, module_blocks, debug):
+def parse_drcov_ascii_blocks(block_data, filename, module_ids, module_base, module_blocks, debug):
     blocks = set()
     blocks_seen = 0
     int_base = 0  # 0 not set, 10 or 16
+    if debug:
+        module_dict = {}
 
     for line in block_data.split(b"\n"):
         # example: 'module[  4]: 0x0000000000001090,   8'
@@ -102,7 +110,8 @@ def parse_drcov_ascii_blocks(block_data, filename, module_id, module_base, modul
         blocks_seen += 1
         if debug:
             print("%d: 0x%08x 0x%x" % (block_module_id, block_offset, block_size))
-        if block_module_id == module_id and block_addr not in blocks:
+            module_dict[block_module_id] = module_dict.get(block_module_id, 0) + 1
+        if block_module_id in module_ids:
             cur_addr = block_addr
             while cur_addr < block_addr + block_size:
                 if cur_addr in module_blocks:
@@ -110,6 +119,10 @@ def parse_drcov_ascii_blocks(block_data, filename, module_id, module_base, modul
                     cur_addr += module_blocks[cur_addr]
                 else:
                     cur_addr += 1
+    if debug:
+        print('[DBG] Block count per-module:')
+        for module_number, blocks_hit in sorted(module_dict.items()):
+            print('    %d: %d' % (module_number, blocks_hit))
     return blocks, blocks_seen
 
 
@@ -143,7 +156,7 @@ def parse_drcov_file(filename, module_name, module_base, module_blocks, debug=Fa
     # Parse the header
     header = data[:header_end_location].decode()
     block_data = data[header_end_location:]
-    module_id = parse_drcov_header(header, module_name, filename, debug)
+    module_ids = parse_drcov_header(header, module_name, filename, debug)
 
     # Parse the block data itself
     if binary_file:
@@ -153,20 +166,21 @@ def parse_drcov_file(filename, module_name, module_base, module_blocks, debug=Fa
     if debug:
         print("[DBG] Detected drcov %s format" % ("binary" if binary_file else "ascii"))
         print("[DBG] Basic block dump (module_id, block_offset, block_size)")
-    blocks, blocks_seen = parse_blocks(block_data, filename, module_id, module_base, module_blocks, debug)
+    blocks, blocks_seen = parse_blocks(block_data, filename, module_ids, module_base, module_blocks, debug)
 
     if debug:
-        if module_id is None:
+        if not module_ids:
             print("[*] %d blocks parsed, no module id specified" % blocks_seen)
         else:
             num_blocks_found = len(blocks)
-            print("[*] %d blocks parsed, %d matched module_id %d" %
-                  (blocks_seen, num_blocks_found, module_id))
+            print("[*] %d blocks parsed; module_ids %s" %
+                  (blocks_seen, module_ids))
     return blocks
 
 
 if __name__ == "__main__":
     import sys
+    import time
     if len(sys.argv) == 1:
         print("STANDALONE USAGE: %s <trace_file> [module_name]" % sys.argv[0])
         exit()
@@ -174,4 +188,7 @@ if __name__ == "__main__":
     module_name = ""
     if len(sys.argv) >= 3:
         module_name = sys.argv[2]
+    start = time.time()
     parse_drcov_file(sys.argv[1], module_name, 0, [], debug=True)
+    duration = time.time() - start
+    print('[*] Completed parsing in %.2f seconds' % duration)
