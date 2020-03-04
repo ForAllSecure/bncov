@@ -154,7 +154,7 @@ def highlight_set(addr_set, color=None, bv=None, start_only=True):
         binary_view = bv
     else:
         if gbv is None:
-            print("[!] To use manually, pass in a binary view or set bncov.gbv first")
+            print("[!] To use manually, pass in a binary view (bv=binary_view), or set bncov.gbv first")
             return
         binary_view = gbv
     if start_only:
@@ -174,7 +174,17 @@ def highlight_set(addr_set, color=None, bv=None, start_only=True):
                 else:
                     highlight_block(block, 0, color)
         else:
-            log.log_warn("[!] No basic block at requested addr 0x%x" % addr)
+            if get_blocks == binary_view.get_basic_blocks_starting_at:
+                containing_blocks = binary_view.get_basic_blocks_at(addr)
+                if containing_blocks:
+                    log.log_warn("[!] No blocks start at 0x%x, but %d blocks contain it:" %
+                                 (addr, len(containing_blocks)))
+                    for i, block in enumerate(containing_blocks):
+                        log.log_info("%d: 0x%x - 0x%x in %s" % (i, block.start, block.end, block.function.name))
+                else:
+                    log.log_warn("[!] No blocks contain address 0x%x; check the address is inside a function." % addr)
+            else:  # get_blocks is binary_view.get_basic_blocks_at
+                log.log_warn("[!] No blocks contain address 0x%x; check the address is inside a function." % addr)
 
 
 def clear_highlights(addr_set, bv):
