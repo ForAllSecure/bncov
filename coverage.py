@@ -269,3 +269,50 @@ class CoverageDB(object):
             blocks_covered += stats.blocks_covered
             blocks_total += stats.blocks_total
         return len(self.function_stats), blocks_covered, blocks_total
+
+    def find_orphan_blocks(self):
+        """Find blocks that are covered in a function whose start isn't covered.
+
+        Good for finding problems with the block coverage collecting/parsing.
+
+        Will be unreliable on targets that have functions with multiple entrypoints
+        or that do certain kinds of function thunking.
+        """
+        orphan_blocks = set()
+        for func, blocks in self.get_functions_from_blocks(self.total_coverage).items():
+            for containing_func in self.bv.get_functions_containing(blocks[0]):
+                if containing_func.name == func:
+                    if containing_func.start not in blocks:
+                        print('[!] WARNING: Function "%s" has coverage, but not the start (0x%x)' %
+                              (func, containing_func.start))
+                        orphan_blocks.update(blocks)
+        return orphan_blocks
+
+    def find_stop_blocks(self, addr_list=None):
+        """Find covered blocks that have successors, but none of them are covered.
+
+        This usually indicates a crash, a non-returning jump/call, or some other oddity
+        (such as a coverage problem).
+
+        Suggested use is on a crashing testcase's block set, you should see one block
+        for each function in the backtrace, something like:
+            bncov.covdb.get_functions_from_blocks(bncov.covdb.find_stop_blocks())
+        """
+        if addr_list is None:
+            addr_list = self.total_coverage
+
+        stop_blocks = set()
+        for block_addr in addr_list:
+            containing_blocks = self.bv.get_basic_blocks_starting_at(block_addr)
+            for basic_block in containing_blocks:
+                # see if any outgoing edges were taken
+                if len(basic_block.outgoing_edges) > 0:
+                    outgoing_seen = False
+                    for edge in basic_block.outgoing_edges:
+                        successor_addr = edge.target.start
+                        if successor_addr in self.total_coverage:
+                            outgoing_seen = True
+                            break
+                    if outgoing_seen is False:
+                        stop_blocks.add(block_addr)
+        return stop_blocks
