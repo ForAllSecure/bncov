@@ -3,6 +3,7 @@ from __future__ import division, absolute_import
 from binaryninja import *
 import os
 from time import time, sleep
+from html import escape as html_escape
 
 from .coverage import CoverageDB
 
@@ -429,15 +430,50 @@ def highlight_rare_blocks(bv, threshold=1):
 
 # PluginCommand - Report
 # Included this to show the potential usefulness of in-GUI reports
-def show_coverage_report(bv):
+def show_coverage_report(bv, save_output=False):
     """Open a tab with a report of coverage statistics for each function"""
     if no_coverage_warn():
         return
     num_functions, blocks_covered, blocks_total = covdb.get_overall_function_coverage()
     title = "Coverage Report for %s" % covdb.module_name
     report = "%d Functions, %d blocks covered of %d total\n" % (num_functions, blocks_covered, blocks_total)
-    report_html = "<h3>%d Functions, %d blocks covered of %d total</h3>\n" % (num_functions, blocks_covered, blocks_total)
-    report_html += "<table>\n"
+    embedded_css = '''<style type="text/css" media="screen">
+
+table {
+  table-layout: fixed;
+  width: 100%;
+  border-collapse: collapse;
+  white-space: nowrap;
+}
+
+table th, td {
+    border: 1px solid gray;
+    padding: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: #e0e0e0;
+}
+
+table tr:nth-child(even) {
+    background-color: #242424;
+}
+table tr:nth-child(odd) {
+    background-color: #2a2a2a;
+}
+
+table th {
+    font: bold;
+    background-color: #181818;
+}
+
+a:link { color: #80c6e9; }
+
+</style>\n'''
+    report_html = ("<h3>%d Functions, %d blocks covered of %d total</h3>\n" %
+                   (num_functions, blocks_covered, blocks_total))
+    column_titles = ['Start Address', 'Function Name', 'Coverage Percent', 'Blocks Covered / Total']
+    report_html += ("<table>\n<tr>%s</tr>\n" % ''.join('<th>%s</th>' % title for title in column_titles))
     function_dict = {f.name: f for f in bv.functions}
     name_dict = {}
     for f in bv.functions:
@@ -449,10 +485,24 @@ def show_coverage_report(bv):
         function_addr = function_dict[mangled_name].start
         report += "  0x%08x  %s%s : %.2f%% coverage\t( %-3d / %3d blocks)\n" % \
                   (function_addr, name, pad, stats.coverage_percent, stats.blocks_covered, stats.blocks_total)
-        report_html += "<tr><td><a href='binaryninja://?expr=0x%x'>0x%08x</a></td><td>%s</td><td>%.2f%% coverage</td><td>%-3d / %3d blocks</td></tr>\n" % \
-                  (function_addr, function_addr, name, stats.coverage_percent, stats.blocks_covered, stats.blocks_total)
+        # build the html table row one item at a time, then combine them
+        function_link = '<a href="binaryninja://?expr=0x%x">0x%08x</a>' % (function_addr, function_addr)
+        function_name = html_escape(name)
+        coverage_percent = '%.2f%% coverage' % stats.coverage_percent
+        blocks_covered = '%d / %d blocks' % (stats.blocks_covered, stats.blocks_total)
+        row_data = [function_link, function_name, coverage_percent, blocks_covered]
+        table_row = '<tr>' + ''.join('<td>%s</td>' % item for item in row_data) + '</tr>'
+        report_html += table_row
 
     report_html += "</table>\n"
+    report_html = '<html>\n<head>\n%s\n</head>\n<body>\n%s\n</body>\n</html>' % (embedded_css, report_html)
+
+    if save_output:
+        target_dir, target_filename = os.path.split(bv.file.filename)
+        html_file = os.path.join(target_dir, 'coverage-report-%s.html' % target_filename)
+        with open(html_file, 'w') as f:
+            f.write(report_html)
+            log.log_info("[*] Saved HTML report to %s" % html_file)
     bv.show_html_report(title, report_html, plaintext=report)
 
 
