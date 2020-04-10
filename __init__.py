@@ -497,13 +497,21 @@ a:link { color: #80c6e9; }
     report_html += "</table>\n"
     report_html = '<html>\n<head>\n%s\n</head>\n<body>\n%s\n</body>\n</html>' % (embedded_css, report_html)
 
+    # Save report if it's too large to display or if user asks
+    target_dir, target_filename = os.path.split(bv.file.filename)
+    html_file = os.path.join(target_dir, 'coverage-report-%s.html' % target_filename)
+    if len(report_html) >= 1307674:
+        interaction.show_message_box("Generated Very Large Report",
+                                     "Qt can't display a report this large. Saving report to: %s" % html_file,
+                                     enums.MessageBoxButtonSet.OKButtonSet,
+                                     enums.MessageBoxIcon.WarningIcon)
+        save_output = True
+    else:
+        bv.show_html_report(title, report_html, plaintext=report)
     if save_output:
-        target_dir, target_filename = os.path.split(bv.file.filename)
-        html_file = os.path.join(target_dir, 'coverage-report-%s.html' % target_filename)
         with open(html_file, 'w') as f:
             f.write(report_html)
             log.log_info("[*] Saved HTML report to %s" % html_file)
-    bv.show_html_report(title, report_html, plaintext=report)
 
 
 # Register plugin commands
