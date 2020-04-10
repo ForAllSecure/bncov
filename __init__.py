@@ -4,6 +4,7 @@ from binaryninja import *
 import os
 from time import time, sleep
 from html import escape as html_escape
+from webbrowser import open_new_tab as open_new_browser_tab
 
 from .coverage import CoverageDB
 
@@ -500,18 +501,31 @@ a:link { color: #80c6e9; }
     # Save report if it's too large to display or if user asks
     target_dir, target_filename = os.path.split(bv.file.filename)
     html_file = os.path.join(target_dir, 'coverage-report-%s.html' % target_filename)
-    if len(report_html) >= 1307674:
-        interaction.show_message_box("Generated Very Large Report",
-                                     "Qt can't display a report this large. Saving report to: %s" % html_file,
-                                     enums.MessageBoxButtonSet.OKButtonSet,
-                                     enums.MessageBoxIcon.WarningIcon)
-        save_output = True
+    choices = ["Cancel Report", "Save Report to File", "Save Report and Open in Browser"]
+    choice = 0
+    save_file = 1
+    save_and_open = 2
+    if len(report_html) > 1307673:  # if Qt eats even one little wafer more, it bursts
+        choice = interaction.get_choice_input(
+            "Qt can't display a report this large. Select an action.",
+            "Generated report too large",
+            choices)
+        if choice in [save_file, save_and_open]:
+            save_output = True
     else:
         bv.show_html_report(title, report_html, plaintext=report)
+
     if save_output:
         with open(html_file, 'w') as f:
             f.write(report_html)
             log.log_info("[*] Saved HTML report to %s" % html_file)
+    if choice == save_file:
+        interaction.show_message_box("Report Saved",
+                                     "Saved HTML report to: %s" % html_file,
+                                     enums.MessageBoxButtonSet.OKButtonSet,
+                                     enums.MessageBoxIcon.InformationIcon)
+    if choice == save_and_open:
+        open_new_browser_tab("file://" + html_file)
 
 
 # Register plugin commands
