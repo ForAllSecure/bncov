@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 from struct import unpack
+from os.path import basename
 
 # Handle parsing files into sets of addresses, each describing the start of a basic block
 # Can be invoked as a standalone script for debugging purposes
@@ -14,6 +15,7 @@ def parse_coverage_file(filename, module_name, module_base, module_blocks):
 
 
 def parse_drcov_header(header, module_name, filename, debug):
+    module_name = module_name.lower()
     module_table_start = False
     module_ids = []
     for i, line in enumerate(header.split("\n")):
@@ -28,7 +30,7 @@ def parse_drcov_header(header, module_name, filename, debug):
             if debug:
                 print("[DBG] Module table entry: %s" % line.strip())
             for col in columns[1:]:
-                if module_name != "" and module_name in col:
+                if module_name != "" and module_name in basename(col).lower():
                     module_ids.append(int(columns[0]))
                     if debug:
                         print("[DBG] Target module found (%d): %s" % (int(columns[0]), line.strip()))
