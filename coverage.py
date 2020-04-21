@@ -143,6 +143,18 @@ class CoverageDB(object):
         for filename in os.listdir(dirpath):
             self.add_file(os.path.join(dirpath, filename))
 
+    def add_raw_coverage(self, name, coverage):
+        """Add raw coverage under a name"""
+        for addr in coverage:
+            if not self.bv.get_basic_blocks_at(addr):
+                raise Exception('[!] Attempted to import a block addr (0x%x) that doesn\'t match a basic block' % addr)
+        for addr in coverage:
+            self.block_dict.setdefault(addr, []).append(name)
+        self.coverage_files.append(name)
+        self.trace_dict[name] = coverage
+        self.total_coverage |= coverage
+        return coverage
+
     # Analysis functions
     def get_traces_from_block(self, addr):
         """Return traces that cover the block that contains addr"""
