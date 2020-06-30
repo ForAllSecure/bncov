@@ -26,7 +26,7 @@ def detect_format(filename):
                 return 'module+offset'
             except ValueError:
                 pass
-    raise Exception('[!] File "%s" doesn\'t appear to be drcov or module+offset format')
+    raise Exception('[!] File "%s" doesn\'t appear to be drcov or module+offset format' % filename)
 
 
 def parse_coverage_file(filename, module_name, module_base, module_blocks, debug=False):
