@@ -473,7 +473,7 @@ a:link { color: #80c6e9; }
 </style>\n'''
     report_html = ("<h3>%d Functions, %d blocks covered of %d total</h3>\n" %
                    (num_functions, blocks_covered, blocks_total))
-    column_titles = ['Start Address', 'Function Name', 'Coverage Percent', 'Blocks Covered / Total']
+    column_titles = ['Start Address', 'Function Name', 'Coverage Percent', 'Blocks Covered / Total', 'Complexity']
     report_html += ("<table>\n<tr>%s</tr>\n" % ''.join('<th>%s</th>' % title for title in column_titles))
     function_dict = {f.name: f for f in bv.functions}
     name_dict = {}
@@ -491,7 +491,7 @@ a:link { color: #80c6e9; }
         function_name = html_escape(name)
         coverage_percent = '%.2f%% coverage' % stats.coverage_percent
         blocks_covered = '%d / %d blocks' % (stats.blocks_covered, stats.blocks_total)
-        row_data = [function_link, function_name, coverage_percent, blocks_covered]
+        row_data = [function_link, function_name, coverage_percent, blocks_covered, str(stats.complexity)]
         table_row = '<tr>' + ''.join('<td>%s</td>' % item for item in row_data) + '</tr>'
         report_html += table_row
 

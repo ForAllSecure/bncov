@@ -15,7 +15,7 @@ except ImportError:
     file_backing_disabled = True
     # print("[!] bncov: without msgpack module, CoverageDB save/load to file is disabled")
 
-FuncCovStats = namedtuple("FuncCovStats", "coverage_percent blocks_covered blocks_total")
+FuncCovStats = namedtuple("FuncCovStats", "coverage_percent blocks_covered blocks_total complexity")
 
 
 class CoverageDB(object):
@@ -255,7 +255,8 @@ class CoverageDB(object):
                 if block.start in self.total_coverage:
                     blocks_covered += 1
             coverage_percent = (blocks_covered / float(func_blocks)) * 100
-            cur_stats = FuncCovStats(coverage_percent, blocks_covered, func_blocks)
+            complexity = self.get_cyclomatic_complexity(func.start)
+            cur_stats = FuncCovStats(coverage_percent, blocks_covered, func_blocks, complexity)
             self.function_stats[func.name] = cur_stats
         return self.function_stats
 
@@ -316,3 +317,14 @@ class CoverageDB(object):
                     if outgoing_seen is False:
                         stop_blocks.add(block_addr)
         return stop_blocks
+
+    def get_cyclomatic_complexity(self, function_start_addr):
+        func = self.bv.get_function_at(function_start_addr)
+
+        if func is None:
+            return None
+
+        num_blocks = len(func.basic_blocks)
+        num_edges = sum(len(bb.outgoing_edges) for bb in func.basic_blocks)
+
+        return num_edges - num_blocks + 2
