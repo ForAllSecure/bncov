@@ -8,7 +8,7 @@ factoring into larger analysis tasks and standalone scripts.
 
 ![Demo Overview](/pictures/demo_overview.gif)
 
-This plugin is provided as a prototype as a way to give back to the community,
+This plugin is provided as a way to give back to the community,
 and is not part of the Mayhem product.  If you're interested in Mayhem, the
 combined symbolic execution and fuzzing system, check us out at
 [forallsecure.com](http://forallsecure.com).
@@ -28,13 +28,16 @@ coverage database files.
 
 ## Usage
 
+Check out the [tutorial](/tutorial/) for a complete walkthrough or how to get
+started right away using data that's already included in this repo!
+
 First collect coverage information in DynamoRIO's drcov format
 ([example script](/dr_block_coverage.py)).
 
 To use in Binary Ninja GUI:
 
 1. Open the target binary, then import coverage files using one of
-the commands in `bncov/Coverage Data/Import \*`
+the commands in `bncov/Coverage Data/Import *`
 either from the Tools menu or from the context (right-click) menu.
 2. Explore the coverage visualization and explore additional analyses from
 the right-click menu or with the built-in interpreter and `import bncov`.
@@ -80,20 +83,16 @@ be hit, or write your own analyses for headless scripting.
 ## Notes
 
 Currently the plugin only deals with block coverage and ingests files in the
-drcov2 format.  Included in the repo is `dr_block_coverage.py` which can be
-used for generating coverage files, just specify your DynamoRIO install
-location with an environment variable (or modify the script) and it can
-process a directory of inputs. DynamoRIO binary packages can be found
+drcov2 format or "module+offset" format. Included in the repo is
+`dr_block_coverage.py` which can be used for generating coverage files, just
+specify your DynamoRIO install location with an environment variable (or
+modify the script) and it can process a directory of inputs. DynamoRIO binary
+packages can be found
 [here](https://github.com/DynamoRIO/dynamorio/wiki/Downloads). See the
 [tutorial](/tutorial/) for a complete walkthrough.
 
-There is only one optional dependency: the python module `msgpack`.  This is
-only used for saving and loading the CoverageDB class to a file.  It trades
-taking a large amount of disk space for a significant speedup of subsequent
-analyses as opposed to loading/analyzing directories of coverage files.
-
-This codebase was written for Python 2.7, but should now be compatible with
-Python 3.  Please file an issue if you encounter any incompatibility problems.
+Please file any feature requests/bugs as issues on GitHub, we welcome any input
+or feedback.
 
 ## Scripting
 
