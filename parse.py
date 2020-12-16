@@ -7,10 +7,58 @@ from os.path import basename
 # Can be invoked as a standalone script for debugging purposes
 
 
-def parse_coverage_file(filename, module_name, module_base, module_blocks):
+def detect_format(filename):
+    """Return the name of the format based on the start of the file."""
+    enough_bytes = 256
+    with open(filename, 'rb') as f:
+        data = f.read(enough_bytes)
+    if isinstance(data, bytes):
+        data = data.decode(errors='replace')
+
+    if data.startswith('DRCOV VERSION: 2'):
+        return 'drcov'
+    if '+' in data:
+        first_line = data.split('\n')[0]
+        pieces = first_line.split('+')
+        if len(pieces) == 2:
+            try:
+                hex_int = int(pieces[1], 16)
+                return 'module+offset'
+            except ValueError:
+                pass
+    raise Exception('[!] File "%s" doesn\'t appear to be drcov or module+offset format' % filename)
+
+
+def parse_coverage_file(filename, module_name, module_base, module_blocks, debug=False):
     """Return a set of addresses of covered blocks in the specified module"""
-    # FUTURE: Do format detection here if multiple types need to be supported
-    blocks = parse_drcov_file(filename, module_name, module_base, module_blocks)
+    file_format = detect_format(filename)
+    if file_format == 'drcov':
+        blocks = parse_drcov_file(filename, module_name, module_base, module_blocks)
+    elif file_format == 'module+offset':
+        blocks = parse_mod_offset_file(filename, module_name, module_base, module_blocks)
+    return blocks
+
+
+def parse_mod_offset_file(filename, module_name, module_base, module_blocks, debug=False):
+    """Return blocks from a file with "module_name+hex_offset" format."""
+    blocks = set()
+    modules_seen = set()
+    with open(filename, 'r') as f:
+        for line in f.readlines():
+            pieces = line.split('+')
+            if len(pieces) != 2:
+                continue
+            name, offset = pieces
+            if debug:
+                if module_name != name and name not in modules_seen:
+                    print('[DBG] module mismatch, expected (%s), encountered (%s)' % (module_name, name))
+                    modules_seen.add(name)
+            block_offset = int(offset, 16)
+            block_addr = module_base + block_offset
+            if block_addr in module_blocks:
+                blocks.add(block_addr)
+            elif debug:
+                print('[!] DBG: address 0x%x not in module_blocks!' % block_addr)
     return blocks
 
 
@@ -191,6 +239,6 @@ if __name__ == "__main__":
     if len(sys.argv) >= 3:
         module_name = sys.argv[2]
     start = time.time()
-    parse_drcov_file(sys.argv[1], module_name, 0, [], debug=True)
+    parse_coverage_file(sys.argv[1], module_name, 0, [], debug=True)
     duration = time.time() - start
     print('[*] Completed parsing in %.2f seconds' % duration)
