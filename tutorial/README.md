@@ -7,7 +7,8 @@ explore later in the `scripts` directory).
 
 If you're so excited to try out bncov that you can't wait any longer, we've
 also included the sample binary with seeds and coverage traces in the
-[example folder](example/).
+[example folder](example/), just jump down to where we start
+[using the data](#visualizing-coverage).
 
 ## Compiling the Target
 
