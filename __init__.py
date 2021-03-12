@@ -309,7 +309,7 @@ class BackgroundHighlighter(BackgroundTaskThread):
                     highlight_set(self.bv, ctx.covdb.total_coverage)
                     idle = -1
             sleep(1)
-            if ctx.watcher:
+            if ctx.watcher is None:
                 break
             if self.cancelled:
                 break
