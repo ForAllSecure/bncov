@@ -74,8 +74,8 @@ def get_block_coverage(path, output_path, command):
         return True
 
 
-def is64bit(binary_filepath):
-    with open(binary_filepath, "rb") as f:
+def is64bit(binary_path):
+    with open(binary_path, "rb") as f:
         data = f.read(32)
     e_machine = data[18]
     if isinstance(e_machine, str):  # python2/3 compatibility, handle e_machine as string or value
@@ -84,7 +84,7 @@ def is64bit(binary_filepath):
         return False
     elif e_machine == 0x3e:  # x64
         return True
-    raise Exception("[!] Unexpected e_machine value in 64-bit check: %s (e_machine: 0x%x)" % (filepath, e_machine))
+    raise Exception("[!] Unexpected e_machine value in 64-bit check: %s (e_machine: 0x%x)" % (binary_path, e_machine))
 
 
 if __name__ == "__main__":
