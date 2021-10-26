@@ -17,11 +17,12 @@ from .coverage import CoverageDB
 PLUGIN_NAME = "bncov"
 
 USAGE_HINT = """[*] In the python shell, do `import bncov` to use
-[*] bncov.covdb houses the the coverage-related functions (see coverage.py for more):
-    bncov.covdb.get_traces_from_block(addr) - get files that cover block starting at addr
+[*] bncov.get_covdb(bv) gets the covdb object for the given Binary View
+    covdb houses the the coverage-related functions (see coverage.py for more):
+    covdb.get_traces_from_block(addr) - get files that cover block starting at addr
         Tip: click somewhere, then do bncov.covdb.get_traces_from_block(here)
-    bncov.covdb.get_rare_blocks(threshold) - get blocks covered by <= threshold traces
-    bncov.covdb.get_frontier(bv) - get blocks that have outgoing edges that aren't covered
+    covdb.get_rare_blocks(threshold) - get blocks covered by <= threshold traces
+    covdb.get_frontier(bv) - get blocks that have outgoing edges that aren't covered
 [*] Helpful covdb members:
     covdb.trace_dict (maps filenames to set of block start addrs)
     covdb.block_dict (maps block start addrs to files containing it)
@@ -45,7 +46,7 @@ class Ctx:
 
 
 # Helpers for scripts
-def get_bv(target_filename, quiet=True):
+def make_bv(target_filename, quiet=True):
     """Return a BinaryView of target_filename"""
     if not os.path.exists(target_filename):
         print("[!] Couldn't find target file \"%s\"..." % target_filename)
@@ -61,7 +62,7 @@ def get_bv(target_filename, quiet=True):
     return bv
 
 
-def get_covdb(bv: BinaryView, coverage_directory, quiet=True):
+def make_covdb(bv: BinaryView, coverage_directory, quiet=True):
     """Return a CoverageDB based on bv and directory"""
     if not os.path.exists(coverage_directory):
         print("[!] Couldn't find coverage directory \"%s\"..." % coverage_directory)
@@ -88,17 +89,24 @@ def save_bndb(bv: BinaryView, bndb_name=None):
     bv.create_database(bndb_name)
 
 
+usage_shown = False
 def get_ctx(bv: BinaryView) -> Ctx:
+    global usage_shown
     ctx = bv.session_data.get(PLUGIN_NAME)
 
     if ctx is None:
         covdb = CoverageDB(bv)
         ctx = Ctx(covdb, None)
         bv.session_data[PLUGIN_NAME] = ctx
-
-        log.log_info(USAGE_HINT)
+        if not usage_shown:
+            log.log_info(USAGE_HINT)
+            usage_shown = True
 
     return ctx
+
+
+def get_covdb(bv: BinaryView) -> CoverageDB:
+    return get_ctx(bv).covdb
 
 
 def close_covdb(bv: BinaryView):
@@ -112,7 +120,7 @@ def no_coverage_warn(bv: BinaryView):
     ctx = get_ctx(bv)
     if len(ctx.covdb.coverage_files) == 0:
         show_message_box("Need to Import Traces First",
-                         "Can't perform this action yet, no traces have been imported",
+                         "Can't perform this action yet, no traces have been imported for this Binary View",
                          MessageBoxButtonSet.OKButtonSet,
                          MessageBoxIcon.ErrorIcon)
         return True

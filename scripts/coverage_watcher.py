@@ -51,8 +51,8 @@ if __name__ == "__main__":
 
     target_filename = sys.argv[1]
     coverage_dir = sys.argv[2]
-    bv = bncov.get_bv(target_filename, quiet=False)
-    covdb = bncov.get_covdb(bv, coverage_dir, quiet=False)
+    bv = bncov.make_bv(target_filename, quiet=False)
+    covdb = bncov.make_covdb(bv, coverage_dir, quiet=False)
 
     script_start = time.time()
     watch_coverage(covdb)
