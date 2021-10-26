@@ -13,6 +13,16 @@ and is not part of the Mayhem product.  If you're interested in Mayhem, the
 combined symbolic execution and fuzzing system, check us out at
 [forallsecure.com](http://forallsecure.com).
 
+## CHANGELOG
+
+After long consideration, some changes in the API are landing:
+
+- Added a `ctx` object that is keyed off the Binary View and helpers
+  `bncov.get_ctx` and `bncov.get_covdb` to support multibinary use case in the
+  UI, so now you can interactively use bncov across tabs!
+- Changed old helpers `bncov.get_bv`/`bncov.get_covdb` to
+  `bncov.make_bv`/`bncov.make_covdb` for making a Binary View from a target file
+  and covdb from a binary and a coverage directory, respectively
 ## Installation
 
 The easiest way is to install via the Binary Ninja plugin manager!
@@ -40,7 +50,8 @@ To use in Binary Ninja GUI:
 the commands in `bncov/Coverage Data/Import *`
 either from the Tools menu or from the context (right-click) menu.
 2. Explore the coverage visualization and explore additional analyses from
-the right-click menu or with the built-in interpreter and `import bncov`.
+the right-click menu or with the built-in interpreter and `import bncov`
+followed by `covdb = bncov.get_covdb(bv)`.
 
 Scripting:
 

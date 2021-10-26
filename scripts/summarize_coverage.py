@@ -44,6 +44,6 @@ if __name__ == "__main__":
     target_filename = sys.argv[1]
     covdir = sys.argv[2]
 
-    bv = bncov.get_bv(target_filename, quiet=False)
-    covdb = bncov.get_covdb(bv, covdir, quiet=False)
+    bv = bncov.make_bv(target_filename, quiet=False)
+    covdb = bncov.make_covdb(bv, covdir, quiet=False)
     print_coverage_summary(bv, covdb)
