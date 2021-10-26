@@ -9,7 +9,7 @@ from os.path import basename
 
 def detect_format(filename):
     """Return the name of the format based on the start of the file."""
-    enough_bytes = 256
+    enough_bytes = 0x1000
     with open(filename, 'rb') as f:
         data = f.read(enough_bytes)
     if isinstance(data, bytes):
@@ -18,14 +18,17 @@ def detect_format(filename):
     if data.startswith('DRCOV VERSION: 2'):
         return 'drcov'
     if '+' in data:
-        first_line = data.split('\n')[0]
-        pieces = first_line.split('+')
-        if len(pieces) == 2:
-            try:
-                hex_int = int(pieces[1], 16)
-                return 'module+offset'
-            except ValueError:
-                pass
+        # Check for module+offset, skipping any comment lines at start
+        for line in data.split('\n'):
+            if line.strip().startswith(';'):
+                continue
+            pieces = line.split('+')
+            if len(pieces) == 2:
+                try:
+                    hex_int = int(pieces[1], 16)
+                    return 'module+offset'
+                except ValueError:
+                    pass
     raise Exception('[!] File "%s" doesn\'t appear to be drcov or module+offset format' % filename)
 
 
@@ -43,12 +46,17 @@ def parse_mod_offset_file(filename, module_name, module_base, module_blocks, deb
     """Return blocks from a file with "module_name+hex_offset" format."""
     blocks = set()
     modules_seen = set()
+    # We do a case-insensitive module name comparison to match Windows behavior
+    module_name = module_name.lower()
     with open(filename, 'r') as f:
         for line in f.readlines():
+            if line.strip().startswith(';'):
+                continue
             pieces = line.split('+')
             if len(pieces) != 2:
                 continue
             name, offset = pieces
+            name = name.lower()
             if debug:
                 if module_name != name and name not in modules_seen:
                     print('[DBG] module mismatch, expected (%s), encountered (%s)' % (module_name, name))

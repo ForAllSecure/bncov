@@ -1,3 +1,5 @@
+; this is a manually-constructed modcov file for demonstration
+; these lines show how comments can be inserted
 fuzztest+600
 fuzztest+580
 fuzztest+5f8
