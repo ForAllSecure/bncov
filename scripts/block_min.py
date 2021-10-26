@@ -30,8 +30,8 @@ if __name__ == "__main__":
         output_dir = os.path.normpath(sys.argv[4])
 
     script_start = time.time()
-    bv = bncov.get_bv(target_filename)
-    covdb = bncov.get_covdb(bv, coverage_dir)
+    bv = bncov.make_bv(target_filename)
+    covdb = bncov.make_covdb(bv, coverage_dir)
 
     seed_paths = [os.path.join(seed_dir, filename) for filename in os.listdir(seed_dir)]
     seed_sizes = {seed_path: os.path.getsize(seed_path) for seed_path in seed_paths}

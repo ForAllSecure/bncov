@@ -235,14 +235,14 @@ if __name__ == "__main__":
     target_filename = sys.argv[1]
     covdir = sys.argv[2]
 
-    bv = bncov.get_bv(target_filename, quiet=False)
+    bv = bncov.make_bv(target_filename, quiet=False)
     original_filepath = bv.file.original_filename
     if not os.path.exists(original_filepath):
         print("ERROR: Original file %s not found (often due to a .bndb with a stale path)" % original_filepath)
         print("       This script requires the original target and that it has debug symbols.")
         exit(1)
 
-    covdb = bncov.get_covdb(bv, covdir, quiet=False)
+    covdb = bncov.make_covdb(bv, covdir, quiet=False)
 
     uncovered_calls = get_uncovered_calls(covdb)
     any_source_found = False

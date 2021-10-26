@@ -72,8 +72,8 @@ if __name__ == "__main__":
     log_name = None
     if len(sys.argv) == 5:
         log_name = sys.argv[4]
-    bv = bncov.get_bv(target_filename, quiet=False)
-    covdb = bncov.get_covdb(bv, cov_dir, quiet=False)
+    bv = bncov.make_bv(target_filename, quiet=False)
+    covdb = bncov.make_covdb(bv, cov_dir, quiet=False)
 
     datapoints = get_coverage_timeline(covdb, seed_dir, cov_dir)
     
