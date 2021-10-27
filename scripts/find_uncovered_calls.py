@@ -89,7 +89,7 @@ def get_uncovered_calls(covdb, max_distance=2):
     # if no max distance is specified, just search all uncovered blocks
     if max_distance is None:
         for func in bv.functions:
-            if function_coverage_stats[func.name].blocks_covered == 0:
+            if function_coverage_stats[func.start].blocks_covered == 0:
                 continue
             for block in func:
                 if block.start in covdb.total_coverage:

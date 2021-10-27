@@ -2,7 +2,8 @@
 coverage.py - defines CoverageDB, which encapsulates coverage data and basic methods for loading/presenting that data
 """
 
-from __future__ import division, absolute_import
+from re import match
+from typing import Dict, List, Set
 
 import os
 from . import parse
@@ -182,36 +183,40 @@ class CoverageDB(object):
         """Return a mapping of blocks to the # of traces that cover it"""
         return {block: len(self.get_traces_from_block(block)) for block in self.total_coverage}
 
-    def get_functions_from_blocks(self, blocks):
-        """Returns a dictionary mapping function names to the block start addrs they contain"""
+    def get_functions_from_blocks(self, blocks, by_name=False) -> Dict[int, List[int]]:
+        """Returns a dictionary mapping functions to basic block addrs"""
         functions = {}
         for addr in blocks:
             matching_functions = self.bv.get_functions_containing(addr)
             if not matching_functions:
                 print("[!] No functions found containing block start 0x%x" % addr)
             else:
-                functions.setdefault(matching_functions[0].name, []).append(addr)
+                for cur_func in matching_functions:
+                    if by_name:
+                        functions.setdefault(cur_func.symbol.short_name, []).append(addr)
+                    else:
+                        functions.setdefault(cur_func.start, []).append(addr)
         return functions
 
     def get_trace_blocks(self, trace_name):
         """Get the set of basic blocks a trace covers"""
         return self.trace_dict[trace_name]
 
-    def get_functions_from_trace(self, trace_name):
-        """Get the list of function names a trace covers"""
-        return list(self.get_functions_from_blocks(self.trace_dict[trace_name]).keys())
+    def get_functions_from_trace(self, trace_name, by_name=False):
+        """Get the list of functions a trace covers"""
+        return list(self.get_functions_from_blocks(self.trace_dict[trace_name], by_name).keys())
 
     def get_trace_uniq_blocks(self, trace_name):
         """Get the set of basic blocks that are only seen in the specified trace"""
         return self.trace_dict[trace_name] & set(self.get_rare_blocks())
 
-    def get_trace_uniq_functions(self, trace_name):
-        """Get a list of function names containing basic blocks that are only seen in the specified trace"""
-        return list(self.get_functions_from_blocks(self.get_trace_uniq_blocks(trace_name)).keys())
+    def get_trace_uniq_functions(self, trace_name, by_name=False):
+        """Get a list of functions containing basic blocks that are only seen in the specified trace"""
+        return list(self.get_functions_from_blocks(self.get_trace_uniq_blocks(trace_name), by_name).keys())
 
-    def get_functions_with_rare_blocks(self):
+    def get_functions_with_rare_blocks(self, by_name=False):
         """Get a list of function names that contain basic blocks only covered by one trace"""
-        return list(self.get_functions_from_blocks(self.get_rare_blocks()).keys())
+        return list(self.get_functions_from_blocks(self.get_rare_blocks(), by_name).keys())
 
     def get_traces_with_rare_blocks(self):
         """Get the set of traces that have blocks that are unique to them"""
@@ -220,15 +225,29 @@ class CoverageDB(object):
             traces.update(self.get_traces_from_block(block))
         return traces
 
-    def get_traces_from_function(self, function_name):
+    def get_traces_from_function_name(self, function_name, demangle=False):
         """Return a set of traces that cover the function specified by function_name"""
-        matching_functions = [f for f in self.bv.functions if f.name == function_name]
+        if demangle:
+            matching_functions = [f for f in self.bv.functions if f.symbol.short_name == function_name]
+        else:
+            matching_functions = [f for f in self.bv.functions if f.name == function_name]
         if len(matching_functions) == 0:
             print("[!] No functions match %s" % function_name)
-            return matching_functions
+            return set()
         if len(matching_functions) > 1:
             raise Exception("[!] Warning, multiple functions matched name: %s" % function_name)
         matching_function = matching_functions[0]
+        traces = set()
+        for block in matching_function.basic_blocks:
+            traces.update(self.get_traces_from_block(block.start))
+        return traces
+
+    def get_traces_from_function(self, function_start: int):
+        """Return a set of traces that cover the function specified by function_name"""
+        matching_function = self.bv.get_function_at(function_start)
+        if matching_function is None:
+            print("[!] No function starts at 0x%x" % function_start)
+            return set()
         traces = set()
         for block in matching_function.basic_blocks:
             traces.update(self.get_traces_from_block(block.start))
@@ -272,7 +291,7 @@ class CoverageDB(object):
             coverage_percent = (blocks_covered / float(func_blocks)) * 100
             complexity = self.get_cyclomatic_complexity(func.start)
             cur_stats = FuncCovStats(coverage_percent, blocks_covered, func_blocks, complexity)
-            self.function_stats[func.name] = cur_stats
+            self.function_stats[func.start] = cur_stats
         return self.function_stats
 
     def get_overall_function_coverage(self):
@@ -295,12 +314,12 @@ class CoverageDB(object):
         or that do certain kinds of function thunking.
         """
         orphan_blocks = set()
-        for func, blocks in self.get_functions_from_blocks(self.total_coverage).items():
+        for func_start, blocks in self.get_functions_from_blocks(self.total_coverage).items():
             for containing_func in self.bv.get_functions_containing(blocks[0]):
-                if containing_func.name == func:
+                if containing_func.start == func_start:
                     if containing_func.start not in blocks:
                         print('[!] WARNING: Function "%s" has coverage, but not the start (0x%x)' %
-                              (func, containing_func.start))
+                              (containing_func.name, containing_func.start))
                         orphan_blocks.update(blocks)
         return orphan_blocks
 

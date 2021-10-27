@@ -51,7 +51,7 @@ def get_coverage_db(dirname, bv):
 
 
 def print_function_blocks(covdb, block_set):
-    function_mapping = covdb.get_functions_from_blocks(block_set)
+    function_mapping = covdb.get_functions_from_blocks(block_set, by_name=True)
     for function_name, blocks in function_mapping.items():
         function_obj = [f for f in bv.functions if f.name == function_name][0]
         pretty_name = function_obj.symbol.short_name

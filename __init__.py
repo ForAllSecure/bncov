@@ -497,15 +497,11 @@ a:link { color: #80c6e9; }
                    (num_functions, blocks_covered, blocks_total))
     column_titles = ['Start Address', 'Function Name', 'Coverage Percent', 'Blocks Covered / Total', 'Complexity']
     report_html += ("<table>\n<tr>%s</tr>\n" % ''.join('<th>%s</th>' % title for title in column_titles))
-    function_dict = {f.name: f for f in bv.functions}
-    name_dict = {}
-    for f in bv.functions:
-        name_dict[f.name] = f.symbol.short_name
-    max_name_length = max([len(name) for name in name_dict.values()])
-    for mangled_name, stats in sorted(ctx.covdb.function_stats.items(), key=lambda x: x[1].coverage_percent, reverse=True):
-        name = name_dict[mangled_name]
+    addr_to_name_dict = {f.start: f.symbol.short_name for f in bv.functions}
+    max_name_length = max([len(name) for name in addr_to_name_dict.values()])
+    for function_addr, stats in sorted(ctx.covdb.function_stats.items(), key=lambda x: x[1].coverage_percent, reverse=True):
+        name = addr_to_name_dict[function_addr]
         pad = " " * (max_name_length - len(name))
-        function_addr = function_dict[mangled_name].start
         report += "  0x%08x  %s%s : %.2f%% coverage\t( %-3d / %3d blocks)\n" % \
                   (function_addr, name, pad, stats.coverage_percent, stats.blocks_covered, stats.blocks_total)
         # build the html table row one item at a time, then combine them

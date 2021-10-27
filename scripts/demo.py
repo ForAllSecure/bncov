@@ -48,17 +48,20 @@ if __name__ == "__main__":
     rare_trace = rare_traces[0]
     print("Get_trace_uniq_blocks - rare_trace: %s" % repr(covdb.get_trace_uniq_blocks(rare_trace)))
     print("Get_trace_blocks - rare_trace: %s" % repr(covdb.get_trace_blocks(rare_trace)))
-    print("Get_functions_from_trace - rare_trace: %s" % repr(covdb.get_functions_from_trace(rare_trace)))
+    print("Get_functions_from_trace - rare_trace: %s" % repr(covdb.get_functions_from_trace(rare_trace, by_name=True)))
     print("Get_functions_from_blocks - rare_blocks: %s" %
-          repr(covdb.get_functions_from_blocks(covdb.get_rare_blocks())))
-    print("Get_trace_uniq_functions - rare_trace: %s" % repr(covdb.get_trace_uniq_functions(rare_trace)))
+          repr(covdb.get_functions_from_blocks(covdb.get_rare_blocks(), by_name=True)))
+    print("Get_trace_uniq_functions - rare_trace: %s" % repr(covdb.get_trace_uniq_functions(rare_trace, by_name=True)))
 
-    rare_func = list(covdb.get_functions_with_rare_blocks())[0]
-    print("get_functions_with_rare_blocks(): %s" % repr(covdb.get_functions_with_rare_blocks()))
-    print("Get_functions_from_blocks - frontier: %s" % repr(covdb.get_functions_from_blocks(frontier)))
+    rare_func_start = list(covdb.get_functions_with_rare_blocks())[0]
+    rare_func = bv.get_function_at(rare_func_start).name
+    print("get_functions_with_rare_blocks(): %s" % repr(covdb.get_functions_with_rare_blocks(by_name=True)))
+    print("Get_functions_from_blocks - frontier: %s" % repr(covdb.get_functions_from_blocks(frontier, by_name=True)))
 
     function_name = rare_func
-    print("Get_traces_from_function - %s: %s" % (function_name,  repr(covdb.get_traces_from_function(function_name))))
+    function_start = rare_func_start
+    print("Get_traces_from_function_name - %s: %s" % (function_name,  repr(covdb.get_traces_from_function_name(function_name))))
+    print("Get_traces_from_function - 0x%x: %s" % (function_start,  repr(covdb.get_traces_from_function(function_start))))
     print("Get_overall_function_coverage: %s" % repr(covdb.get_overall_function_coverage()))
 
     key, value = list(covdb.function_stats.items())[0]

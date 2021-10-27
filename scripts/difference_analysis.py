@@ -79,7 +79,7 @@ if __name__ == "__main__":
         print('[*] "%s" contains %d new blocks' % (coverage_dirs[i], num_new_coverage))
         covdb.collect_function_coverage()
         if num_new_coverage > 0:
-            f2a = covdb.get_functions_from_blocks(new_coverage)
+            f2a = covdb.get_functions_from_blocks(new_coverage, by_name=True)
             for function, blocks in f2a.items():
                 print("  %s: %s" % (function, str(["0x%x" % addr for addr in blocks])))
 

@@ -19,7 +19,7 @@ def print_coverage_summary(bv, covdb):
     # Summarize coverage for all functions with nonzero coverage
     function_summaries = {}
     for function_obj in covdb.bv.functions:
-        stats = covdb.function_stats[function_obj.name]
+        stats = covdb.function_stats[function_obj.start]
         if stats.blocks_covered == 0:
             continue
         demangled_name = function_obj.symbol.short_name

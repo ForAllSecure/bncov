@@ -15,7 +15,7 @@ combined symbolic execution and fuzzing system, check us out at
 
 ## CHANGELOG
 
-After long consideration, some changes in the API are landing:
+After long consideration, some changes in the API are landing as of Oct 2021:
 
 - Added a `ctx` object that is keyed off the Binary View and helpers
   `bncov.get_ctx` and `bncov.get_covdb` to support multibinary use case in the
@@ -23,6 +23,10 @@ After long consideration, some changes in the API are landing:
 - Changed old helpers `bncov.get_bv`/`bncov.get_covdb` to
   `bncov.make_bv`/`bncov.make_covdb` for making a Binary View from a target file
   and covdb from a binary and a coverage directory, respectively
+- All function-related covdb member functions now default to keying off of
+  function start addresses rather than names since function starts are unique
+  and more usable for many applications. Extra optional args or helper functions
+  implement the existing behavior.
 ## Installation
 
 The easiest way is to install via the Binary Ninja plugin manager!
@@ -116,11 +120,16 @@ the plugin uses. See the `scripts/` directory for more ideas.
     * total_coverage (set of start addresses of the basic blocks covered)
 
 * Helpful CoverageDB functions:
-    * get_traces_from_block(addr) - get files that cover the basic block starting at addr.
+    * get_traces_from_block(addr) - get files that cover the basic block
+      starting at addr.
     * get_rare_blocks(threshold) - get blocks covered by <= 'threshold' traces
     * get_frontier() - get blocks that have outgoing edges that aren't covered
-    * get_functions_from_blocks(blocks) - return dict mapping function names to blocks they contain
-    * get_traces_from_function(function_name) - return set of traces that have coverage in the specified function
+    * get_functions_from_blocks(blocks, by_name=False) - return dict mapping
+      function starts/names to blocks they contain
+    * get_traces_from_function(function_start) - return set of traces that have
+      coverage in the specified function
+    * get_traces_from_function_name(function_name, demangle=False) - return set
+      of traces that have coverage in the specified function
 
 * You can use Binary Ninja's python console and built-in python set operations with
 bncov.highlight_set() to do custom highlights in the Binary Ninja UI.

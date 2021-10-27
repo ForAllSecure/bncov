@@ -24,7 +24,7 @@ if __name__ == "__main__":
 
     frontier = covdb.get_frontier()
     print("[*] %d total frontier blocks found" % len(frontier))
-    function_mapping = covdb.get_functions_from_blocks(frontier)
+    function_mapping = covdb.get_functions_from_blocks(frontier, by_name=True)
     for function_name, frontier_blocks in function_mapping.items():
         print("  %d frontier blocks in %s" % (len(frontier_blocks), function_name))
 
