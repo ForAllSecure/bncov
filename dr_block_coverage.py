@@ -15,6 +15,7 @@ USAGE += "\n  Optional script arguments:"
 USAGE += "\n      --workers=N             Use N worker processes"
 USAGE += "\n      --continuously_monitor  Process new seeds as they appear"
 USAGE += "\n      --debug                 Print stdout and stderr of target"
+USAGE += "\n      --stdin                 Target uses stdin for input"
 
 # Path to DynamoRIO root
 path_to_dynamorio = os.getenv("DYNAMORIO", "DynamoRIO-Linux-8.0.0-1")
@@ -31,6 +32,7 @@ if not os.path.exists(path_to_dynamorio):
             "    Or set the env var DYNAMORIO to point to your DynamoRIO dir.")
         exit()
 
+use_stdin = False
 
 def wrap_get_block_coverage(path):
     try:
@@ -44,12 +46,19 @@ def wrap_get_block_coverage(path):
         pool.terminate()
 
 
-def get_block_coverage(path, output_path, command):
-    command = command.replace("@@", path)
+def get_block_coverage(input_path, output_path, command):
+    if use_stdin:
+        fuzz_input = open(input_path, 'rb')
+    else:
+        fuzz_input = subprocess.PIPE
+        command = command.replace("@@", input_path)
     drcov_process = subprocess.Popen(command.split(),
+                                     stdin=fuzz_input,
                                      stdout=subprocess.PIPE,
                                      stderr=subprocess.PIPE,
                                      shell=False)
+    if use_stdin:
+        fuzz_input.close()
     output, err = drcov_process.communicate()
     if debug:
         print("[DBG] stdout: `%s`" % output)
@@ -103,43 +112,37 @@ if __name__ == "__main__":
     script_options = sys.argv[1:sys.argv.index("--")]
     target_invocation = " ".join(sys.argv[sys.argv.index("--")+1:])
 
-    # parse and remove optional switches
+    # parse switches
     num_workers = 4
     continuously_monitor = False
     debug = False
-    worker_index = -1
-    monitor_index = -1
-    debug_index = -1
+    remaining_args= []
     for i, option in enumerate(script_options):
         if option.startswith("--workers="):
             num_workers = int(option.split('=')[1])
             worker_index = i
-            print("[*] Using %d worker processes" % num_workers)
         elif option == "--continuously_monitor":
             continuously_monitor = True
-            monitor_index = i
             print("[*] Will continuously monitor seed directory")
         elif option == "--debug":
             debug = True
-            debug_index = i
+        elif option == '--stdin':
+            use_stdin = True
         elif option.startswith('--'):
             print("[!] Unrecognized option: %s" % option)
             print(USAGE)
             exit()
-    if worker_index != -1:
-        script_options.pop(worker_index)
-    if monitor_index != -1:
-        script_options.pop(monitor_index)
-    if debug_index != -1:
-        script_options.pop(debug_index)
+        else:
+            remaining_args.append(option)
+    print("[*] Using %d worker processes" % num_workers)
 
     # if no output dir provided, just name it based on seed dir
-    to_process = script_options[0]
-    if len(script_options) == 1:
+    to_process = remaining_args[0]
+    if len(remaining_args) == 1:
         to_process = os.path.normpath(to_process)
         output_dir = to_process + "-cov"
     else:
-        output_dir = script_options[1]
+        output_dir = remaining_args[1]
 
     if not os.path.exists(to_process):
         print("[!] Seed directory %s does not exist, quitting." % to_process)
@@ -149,10 +152,9 @@ if __name__ == "__main__":
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
-    if "@@" not in target_invocation:
-        print("[!] Currently only AFL-style @@-replacement invocations are supported,")
-        print("    and '@@' not found in the target invocation; quitting.")
-        exit()
+    if not use_stdin and "@@" not in target_invocation:
+        print('[!] "@@" not found in target invocation and no --stdin flag; quitting.')
+        exit(-2)
     print("[*] Non-instrumented invocation: %s" % target_invocation)
     target_binary = target_invocation.split()[0]
     print("[*] Presumed target executable: %s" % target_binary)
@@ -204,18 +206,17 @@ if __name__ == "__main__":
             num_files = len(files_to_process)
             if num_files != 0:
                 print("[*] %d files to process:" % num_files)
-
-            pool = multiprocessing.Pool(num_workers)
-            return_stream = pool.imap(wrap_get_block_coverage, files_to_process)
-            for i, path in enumerate(files_to_process):
-                if return_stream.next():
-                    # If this doesn't work, use sys.stdout.write("\b" * prev_output_len) 
-                    sys.stdout.write("\r[%d/%d] Coverage collected for %s" 
-                                     % (i+1, num_files, path))
-                    sys.stdout.flush() 
-            sys.stdout.write("\n")
-            pool.close()
-            pool = None
+                pool = multiprocessing.Pool(num_workers)
+                return_stream = pool.imap(wrap_get_block_coverage, files_to_process)
+                for i, path in enumerate(files_to_process):
+                    if return_stream.next():
+                        # If this doesn't work, use sys.stdout.write("\b" * prev_output_len) 
+                        sys.stdout.write("\r[%d/%d] Coverage collected for %s" 
+                                        % (i+1, num_files, path))
+                        sys.stdout.flush() 
+                sys.stdout.write("\n")
+                pool.close()
+                pool = None
 
             if continuously_monitor:
                 time.sleep(2)
