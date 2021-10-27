@@ -452,8 +452,12 @@ def highlight_rare_blocks(bv: BinaryView, threshold=1):
 
 # PluginCommand - Report
 # Included this to show the potential usefulness of in-GUI reports
-def show_coverage_report(bv: BinaryView, save_output=False, filter_func=None):
-    """Open a tab with a report of coverage statistics for each function"""
+def show_coverage_report(bv: BinaryView, save_output=False, filter_func=None, report_name=None):
+    """Open a tab with a report of coverage statistics for each function.
+
+    Optionally accept a filter function that gets the function start and stats
+    and returns True if it should be included in the report, False otherwise."""
+
     if no_coverage_warn(bv):
         return
     covdb = get_covdb(bv)
@@ -474,14 +478,47 @@ def show_coverage_report(bv: BinaryView, save_output=False, filter_func=None):
         log.log_warn('All functions filtered!')
         return
 
-    title = "Coverage Report for %s" % covdb.module_name
+    if report_name is None:
+        report_name = 'Coverage Report'
+    title = "%s for %s" % (report_name, covdb.module_name)
+
     num_functions_unfiltered = len(covdb.function_stats)
     if num_functions == num_functions_unfiltered:
-        report = "%d Functions, %d blocks covered of %d total\n" % \
+        report_header = "%d Functions, %d blocks covered of %d total" % \
             (num_functions, blocks_covered, blocks_total)
     else:
-        report = "%d/%d Functions, %d blocks covered of %d total\n" % \
+        report_header = "%d / %d Functions shown, %d / %d blocks covered" % \
             (num_functions, num_functions_unfiltered, blocks_covered, blocks_total)
+
+    report_plaintext = "%s\n" % report_header
+    report_html = "<h3>%s</h3>\n" % report_header
+    column_titles = ['Start Address', 'Function Name', 'Coverage Percent', 'Blocks Covered / Total', 'Complexity']
+    report_html += ("<table class=\"sortable\">\n<thead>\n<tr>%s</tr>\n</thead>\n<tbody>" % \
+        ''.join('<th>%s</th>' % title for title in column_titles))
+
+    max_name_length = max([len(name) for name in addr_to_name_dict.values()])
+    for function_addr, stats in sorted(covdb.function_stats.items(), key=lambda x: (x[1].coverage_percent, x[1].blocks_covered), reverse=True):
+        # skip filtered functions
+        if function_addr not in addr_to_name_dict:
+            continue
+
+        name = addr_to_name_dict[function_addr]
+        pad = " " * (max_name_length - len(name))
+
+        report_plaintext += "  0x%08x  %s%s : %.2f%%\t( %-3d / %3d blocks)\n" % \
+                  (function_addr, name, pad, stats.coverage_percent, stats.blocks_covered, stats.blocks_total)
+
+        # build the html table row one item at a time, then combine them
+        function_link = '<a href="binaryninja://?expr=0x%x">0x%08x</a>' % (function_addr, function_addr)
+        function_name = html_escape(name)
+        coverage_percent = '%.2f%%' % stats.coverage_percent
+        blocks_covered = '%d / %d blocks' % (stats.blocks_covered, stats.blocks_total)
+        row_data = [function_link, function_name, coverage_percent, blocks_covered, str(stats.complexity)]
+        table_row = '<tr>' + ''.join('<td>%s</td>' % item for item in row_data) + '</tr>'
+        report_html += table_row
+
+    report_html += "</tbody></table>\n"
+
     embedded_css = '''<style type="text/css" media="screen">
 
 table {
@@ -515,32 +552,10 @@ table th {
 a:link { color: #80c6e9; }
 
 </style>\n'''
-    report_html = ("<h3>%d Functions, %d blocks covered of %d total</h3>\n" %
-                   (num_functions, blocks_covered, blocks_total))
-    column_titles = ['Start Address', 'Function Name', 'Coverage Percent', 'Blocks Covered / Total', 'Complexity']
-    report_html += ("<table>\n<tr>%s</tr>\n" % ''.join('<th>%s</th>' % title for title in column_titles))
-
-    max_name_length = max([len(name) for name in addr_to_name_dict.values()])
-    for function_addr, stats in sorted(covdb.function_stats.items(), key=lambda x: (x[1].coverage_percent, x[1].blocks_covered), reverse=True):
-        # skip filtered functions
-        if function_addr not in addr_to_name_dict:
-            continue
-        name = addr_to_name_dict[function_addr]
-        pad = " " * (max_name_length - len(name))
-        report += "  0x%08x  %s%s : %.2f%% coverage\t( %-3d / %3d blocks)\n" % \
-                  (function_addr, name, pad, stats.coverage_percent, stats.blocks_covered, stats.blocks_total)
-
-        # build the html table row one item at a time, then combine them
-        function_link = '<a href="binaryninja://?expr=0x%x">0x%08x</a>' % (function_addr, function_addr)
-        function_name = html_escape(name)
-        coverage_percent = '%.2f%% coverage' % stats.coverage_percent
-        blocks_covered = '%d / %d blocks' % (stats.blocks_covered, stats.blocks_total)
-        row_data = [function_link, function_name, coverage_percent, blocks_covered, str(stats.complexity)]
-        table_row = '<tr>' + ''.join('<td>%s</td>' % item for item in row_data) + '</tr>'
-        report_html += table_row
-
-    report_html += "</table>\n"
-    report_html = '<html>\n<head>\n%s\n</head>\n<body>\n%s\n</body>\n</html>' % (embedded_css, report_html)
+    # Optional, if it doesn't load, then the table is pre-sorted
+    js_sort = '<script src="https://www.kryogenix.org/code/browser/sorttable/sorttable.js"></script>'
+    report_html = '<html>\n<head>\n%s\n%s\n</head>\n<body>\n%s\n</body>\n</html>' % \
+        (embedded_css, js_sort, report_html)
 
     # Save report if it's too large to display or if user asks
     choices = ["Cancel Report", "Save Report to File", "Save Report and Open in Browser"]
@@ -554,7 +569,7 @@ a:link { color: #80c6e9; }
         if choice in [save_file, save_and_open]:
             save_output = True
     else:
-        bv.show_html_report(title, report_html, plaintext=report)
+        bv.show_html_report(title, report_html, plaintext=report_plaintext)
 
     target_dir, target_filename = os.path.split(bv.file.filename)
     html_file = os.path.join(target_dir, 'coverage-report-%s.html' % target_filename)
@@ -580,7 +595,29 @@ def show_high_complexity_report(bv, min_complexity=20, save_output=False):
         else:
             return False
 
-    show_coverage_report(bv, save_output, complexity_filter)
+    show_coverage_report(bv, save_output, complexity_filter, 'High Complexity Coverage Report')
+
+
+def show_nontrivial_report(bv, save_output=False):
+    """Demonstrate a coverage report filtered using BN's analysis"""
+
+    def triviality_filter(cur_func_start, cur_func_stats):
+        cur_function = bv.get_function_at(cur_func_start)
+
+        trivial_block_count = 4
+        trivial_instruction_count = 16
+        blocks_seen = 0
+        instructions_seen = 0
+        for block in cur_function.basic_blocks:
+            blocks_seen += 1
+            instructions_seen += block.instruction_count
+            if blocks_seen > trivial_block_count:
+                return True
+            if instructions_seen > trivial_instruction_count:
+                return True
+        return False
+
+    show_coverage_report(bv, save_output, triviality_filter, 'Nontrivial Coverage Report')
 
 
 # Register plugin commands
@@ -625,3 +662,6 @@ PluginCommand.register("bncov\\Reports\\Show Coverage Report",
 PluginCommand.register("bncov\\Reports\\Show High-Complexity Function Report",
                        "Show a report of high-complexity function coverage",
                        show_high_complexity_report)
+PluginCommand.register("bncov\\Reports\\Show Non-Trivial Function Report",
+                       "Show a report of non-trivial function coverage",
+                       show_nontrivial_report)
