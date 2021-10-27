@@ -452,14 +452,33 @@ def highlight_rare_blocks(bv: BinaryView, threshold=1):
 
 # PluginCommand - Report
 # Included this to show the potential usefulness of in-GUI reports
-def show_coverage_report(bv: BinaryView, save_output=False):
+def show_coverage_report(bv: BinaryView, save_output=False, filter_func=None):
     """Open a tab with a report of coverage statistics for each function"""
     if no_coverage_warn(bv):
         return
-    ctx = get_ctx(bv)
-    num_functions, blocks_covered, blocks_total = ctx.covdb.get_overall_function_coverage()
-    title = "Coverage Report for %s" % ctx.covdb.module_name
-    report = "%d Functions, %d blocks covered of %d total\n" % (num_functions, blocks_covered, blocks_total)
+    covdb = get_covdb(bv)
+    covdb.get_overall_function_coverage()
+
+    # Build report overview stats with the optional filter callback
+    blocks_covered = 0
+    blocks_total = 0
+    addr_to_name_dict = {}
+    for function_addr, stats in covdb.function_stats.items():
+        if filter_func is None or filter_func(function_addr, stats):
+            demangled_name = bv.get_function_at(function_addr).symbol.short_name
+            addr_to_name_dict[function_addr] = demangled_name
+            blocks_covered += stats.blocks_covered
+            blocks_total += stats.blocks_total
+    num_functions = len(addr_to_name_dict)
+
+    title = "Coverage Report for %s" % covdb.module_name
+    num_functions_unfiltered = len(covdb.function_stats)
+    if num_functions == num_functions_unfiltered:
+        report = "%d Functions, %d blocks covered of %d total\n" % \
+            (num_functions, blocks_covered, blocks_total)
+    else:
+        report = "%d/%d Functions, %d blocks covered of %d total\n" % \
+            (num_functions, num_functions_unfiltered, blocks_covered, blocks_total)
     embedded_css = '''<style type="text/css" media="screen">
 
 table {
@@ -497,13 +516,14 @@ a:link { color: #80c6e9; }
                    (num_functions, blocks_covered, blocks_total))
     column_titles = ['Start Address', 'Function Name', 'Coverage Percent', 'Blocks Covered / Total', 'Complexity']
     report_html += ("<table>\n<tr>%s</tr>\n" % ''.join('<th>%s</th>' % title for title in column_titles))
-    addr_to_name_dict = {f.start: f.symbol.short_name for f in bv.functions}
+
     max_name_length = max([len(name) for name in addr_to_name_dict.values()])
-    for function_addr, stats in sorted(ctx.covdb.function_stats.items(), key=lambda x: x[1].coverage_percent, reverse=True):
+    for function_addr, stats in sorted(covdb.function_stats.items(), key=lambda x: x[1].coverage_percent, reverse=True):
         name = addr_to_name_dict[function_addr]
         pad = " " * (max_name_length - len(name))
         report += "  0x%08x  %s%s : %.2f%% coverage\t( %-3d / %3d blocks)\n" % \
                   (function_addr, name, pad, stats.coverage_percent, stats.blocks_covered, stats.blocks_total)
+
         # build the html table row one item at a time, then combine them
         function_link = '<a href="binaryninja://?expr=0x%x">0x%08x</a>' % (function_addr, function_addr)
         function_name = html_escape(name)
@@ -517,12 +537,9 @@ a:link { color: #80c6e9; }
     report_html = '<html>\n<head>\n%s\n</head>\n<body>\n%s\n</body>\n</html>' % (embedded_css, report_html)
 
     # Save report if it's too large to display or if user asks
-    target_dir, target_filename = os.path.split(bv.file.filename)
-    html_file = os.path.join(target_dir, 'coverage-report-%s.html' % target_filename)
     choices = ["Cancel Report", "Save Report to File", "Save Report and Open in Browser"]
-    choice = 0
-    save_file = 1
-    save_and_open = 2
+    choice = 0  # "something unexpected" choice
+    save_file, save_and_open = 1, 2  # user choices
     if len(report_html) > 1307673:  # if Qt eats even one little wafer more, it bursts
         choice = interaction.get_choice_input(
             "Qt can't display a report this large. Select an action.",
@@ -533,6 +550,8 @@ a:link { color: #80c6e9; }
     else:
         bv.show_html_report(title, report_html, plaintext=report)
 
+    target_dir, target_filename = os.path.split(bv.file.filename)
+    html_file = os.path.join(target_dir, 'coverage-report-%s.html' % target_filename)
     if save_output:
         with open(html_file, 'w') as f:
             f.write(report_html)
