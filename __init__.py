@@ -470,6 +470,9 @@ def show_coverage_report(bv: BinaryView, save_output=False, filter_func=None):
             blocks_covered += stats.blocks_covered
             blocks_total += stats.blocks_total
     num_functions = len(addr_to_name_dict)
+    if num_functions == 0 and filter_func is not None:
+        log.log_warn('All functions filtered!')
+        return
 
     title = "Coverage Report for %s" % covdb.module_name
     num_functions_unfiltered = len(covdb.function_stats)
@@ -518,7 +521,10 @@ a:link { color: #80c6e9; }
     report_html += ("<table>\n<tr>%s</tr>\n" % ''.join('<th>%s</th>' % title for title in column_titles))
 
     max_name_length = max([len(name) for name in addr_to_name_dict.values()])
-    for function_addr, stats in sorted(covdb.function_stats.items(), key=lambda x: x[1].coverage_percent, reverse=True):
+    for function_addr, stats in sorted(covdb.function_stats.items(), key=lambda x: (x[1].coverage_percent, x[1].blocks_covered), reverse=True):
+        # skip filtered functions
+        if function_addr not in addr_to_name_dict:
+            continue
         name = addr_to_name_dict[function_addr]
         pad = " " * (max_name_length - len(name))
         report += "  0x%08x  %s%s : %.2f%% coverage\t( %-3d / %3d blocks)\n" % \
@@ -565,6 +571,18 @@ a:link { color: #80c6e9; }
         open_new_browser_tab("file://" + html_file)
 
 
+def show_high_complexity_report(bv, min_complexity=20, save_output=False):
+    """Show a report of just high-complexity functions"""
+
+    def complexity_filter(cur_func_start, cur_func_stats):
+        if cur_func_stats.complexity >= min_complexity:
+            return True
+        else:
+            return False
+
+    show_coverage_report(bv, save_output, complexity_filter)
+
+
 # Register plugin commands
 PluginCommand.register("bncov\\Coverage Data\\Import Directory",
                        "Import basic block coverage from files in directory",
@@ -601,6 +619,9 @@ PluginCommand.register("bncov\\Highlighting\\Restore Default Highlights",
                        "Highlight coverage",
                        restore_default_highlights)
 
-PluginCommand.register("bncov\\Reports\\Generate Coverage Report",
+PluginCommand.register("bncov\\Reports\\Show Coverage Report",
                        "Show a report of function coverage",
                        show_coverage_report)
+PluginCommand.register("bncov\\Reports\\Show High-Complexity Function Report",
+                       "Show a report of high-complexity function coverage",
+                       show_high_complexity_report)
