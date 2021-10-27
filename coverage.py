@@ -127,6 +127,9 @@ class CoverageDB(object):
     # Coverage import functions
     def add_file(self, filepath):
         """Add a new coverage file"""
+        if os.path.getsize(filepath) == 0:
+            print('[!] Warning: Coverage file "%s" is empty, skipping...' % filepath)
+            return set()
         coverage = parse.parse_coverage_file(filepath, self.module_name, self.module_base, self.module_blocks)
         if len(coverage) <= 10:
             print("[!] Warning: Coverage file %s returned very few coverage addresses (%d)"

@@ -330,7 +330,13 @@ class BackgroundHighlighter(BackgroundTaskThread):
             num_files = len(dirlist)
             files_processed = 0
             for filename in dirlist:
-                ctx.covdb.add_file(os.path.join(self.coverage_dir, filename))
+                filepath = os.path.join(self.coverage_dir, filename)
+                if os.path.getsize(filepath) == 0:
+                    log.log_warn('Coverage file %s is empty, skipping...' % filepath)
+                    continue
+                blocks = ctx.covdb.add_file(filepath)
+                if len(blocks) == 0:
+                    log.log_warn('Coverage file %s yielded zero coverage information' % filepath)
                 self.progress = "%d / %d files processed" % (files_processed, num_files)
                 files_processed += 1
                 self.files_processed.append(filename)
@@ -353,10 +359,15 @@ def import_file(bv: BinaryView, filepath=None, color=None):
         filepath = get_open_filename_input("Coverage File")
         if filepath is None:
             return
-    ctx.covdb.add_file(filepath)
-    blocks = ctx.covdb.trace_dict[filepath]
-    highlight_set(bv, blocks, color)
-    log.log_info("[*] Highlighted %d basic blocks for file %s" % (len(blocks), filepath))
+    if os.path.getsize(filepath) == 0:
+        log.log_warn('Coverage file %s is empty!' % filepath)
+        return
+    blocks = ctx.covdb.add_file(filepath)
+    if len(blocks) == 0:
+        log.log_warn('Coverage file %s yielded 0 coverage blocks' % filepath)
+    else:
+        highlight_set(bv, blocks, color)
+        log.log_info("[*] Highlighted %d basic blocks for file %s" % (len(blocks), filepath))
 
 
 def background_import_dir(bv: BinaryView, watch=False):
