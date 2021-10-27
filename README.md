@@ -27,6 +27,10 @@ After long consideration, some changes in the API are landing as of Oct 2021:
   function start addresses rather than names since function starts are unique
   and more usable for many applications. Extra optional args or helper functions
   implement the existing behavior.
+- Abandoning Python2 suport
+- Added `download_dynamorio.py` for the sloths
+- Minor quality-of-life fixes
+
 ## Installation
 
 The easiest way is to install via the Binary Ninja plugin manager!
@@ -103,7 +107,8 @@ drcov2 format or "module+offset" format. Included in the repo is
 specify your DynamoRIO install location with an environment variable (or
 modify the script) and it can process a directory of inputs. DynamoRIO binary
 packages can be found
-[here](https://github.com/DynamoRIO/dynamorio/wiki/Downloads). See the
+[here](https://github.com/DynamoRIO/dynamorio/wiki/Downloads) or you can use the
+included `download_dynamorio.py` script. See the
 [tutorial](/tutorial/) for a complete walkthrough.
 
 Please file any feature requests/bugs as issues on GitHub, we welcome any input

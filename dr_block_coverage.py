@@ -17,11 +17,19 @@ USAGE += "\n      --continuously_monitor  Process new seeds as they appear"
 USAGE += "\n      --debug                 Print stdout and stderr of target"
 
 # Path to DynamoRIO root
-path_to_dynamorio = os.getenv("DYNAMORIO", "/mnt/hgfs/vmshare/dr/")
+path_to_dynamorio = os.getenv("DYNAMORIO", "DynamoRIO-Linux-8.0.0-1")
 if not os.path.exists(path_to_dynamorio):
-    print("[!] DynamoRIO not found at '%s'" % path_to_dynamorio +
-          "please update in the script (%s) or set environment variable DYNAMORIO to point to path" % sys.argv[0])
-    exit()
+    matches = glob.glob('DynamoRIO-*-*')
+    for match in matches:
+        if os.path.isdir(match) and 'bin32' in os.listdir(match):
+            path_to_dynamorio = match
+            break
+    if not os.path.exists(path_to_dynamorio):
+        print(f"[!] DynamoRIO not found at '{path_to_dynamorio}'\n" +
+            "    Please run the ./download_dynamorio.py script.\n" +
+            f"    Or update the default path in this script ({sys.argv[0]}),\n" +
+            "    Or set the env var DYNAMORIO to point to your DynamoRIO dir.")
+        exit()
 
 
 def wrap_get_block_coverage(path):

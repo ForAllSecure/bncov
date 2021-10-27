@@ -58,8 +58,9 @@ the `output` directory and restart it later.
 
 ## Getting Coverage
 
-If you haven't downloaded DynamoRIO, now would be a great time!
-[DynamoRIO binary package download Link](https://github.com/DynamoRIO/dynamorio/wiki/Downloads).
+If you haven't downloaded DynamoRIO, now would be a great time! Find your
+[DynamoRIO binary package download Link](https://github.com/DynamoRIO/dynamorio/wiki/Downloads)
+or use the included `download_dynamorio.py`
 
 In a new terminal, you'll need to tell the coverage script where to
 find the DynamoRIO binaries, which you can do by changing a variable in
