@@ -12,6 +12,14 @@ from webbrowser import open_new_tab as open_new_browser_tab
 
 from .coverage import CoverageDB
 
+# shim for backwards-compatible log
+import binaryninja
+if hasattr(binaryninja.log, 'log_debug'):
+    log_debug = log.log_debug
+    log_info = log.log_info
+    log_warn = log.log_warn
+    log_error = log.log_error
+
 # __init__.py is only for Binary Ninja UI-related tasks
 
 PLUGIN_NAME = "bncov"
@@ -99,7 +107,7 @@ def get_ctx(bv: BinaryView) -> Ctx:
         ctx = Ctx(covdb, None)
         bv.session_data[PLUGIN_NAME] = ctx
         if not usage_shown:
-            log.log_info(USAGE_HINT)
+            log_info(USAGE_HINT)
             usage_shown = True
 
     return ctx
@@ -187,14 +195,14 @@ def highlight_set(bv: BinaryView, addr_set, color=None, start_only=True):
             if get_blocks == bv.get_basic_blocks_starting_at:
                 containing_blocks = bv.get_basic_blocks_at(addr)
                 if containing_blocks:
-                    log.log_warn("[!] No blocks start at 0x%x, but %d blocks contain it:" %
+                    log_warn("[!] No blocks start at 0x%x, but %d blocks contain it:" %
                                  (addr, len(containing_blocks)))
                     for i, block in enumerate(containing_blocks):
-                        log.log_info("%d: 0x%x - 0x%x in %s" % (i, block.start, block.end, block.function.name))
+                        log_info("%d: 0x%x - 0x%x in %s" % (i, block.start, block.end, block.function.name))
                 else:
-                    log.log_warn("[!] No blocks contain address 0x%x; check the address is inside a function." % addr)
+                    log_warn("[!] No blocks contain address 0x%x; check the address is inside a function." % addr)
             else:  # get_blocks is bv.get_basic_blocks_at
-                log.log_warn("[!] No blocks contain address 0x%x; check the address is inside a function." % addr)
+                log_warn("[!] No blocks contain address 0x%x; check the address is inside a function." % addr)
 
 
 def clear_highlights(bv: BinaryView, addr_set):
@@ -221,7 +229,7 @@ def highlight_trace(bv: BinaryView, filepath, color_name=""):
     """Highlight blocks from a given trace with human-readable color_name"""
     ctx = get_ctx(bv)
     if filepath not in ctx.covdb.coverage_files:
-        log.log_error("[!] %s is not in the coverage DB" % filepath)
+        log_error("[!] %s is not in the coverage DB" % filepath)
         return
     blocks = ctx.covdb.trace_dict[filepath]
     if color_name == "":
@@ -229,10 +237,10 @@ def highlight_trace(bv: BinaryView, filepath, color_name=""):
     elif color_name.lower() in colors:
         color = colors[color_name]
     else:
-        log.log_warn("[!] %s isn't a HighlightStandardColor, using my favorite color instead" % color_name)
+        log_warn("[!] %s isn't a HighlightStandardColor, using my favorite color instead" % color_name)
         color = colors["red"]
     highlight_set(bv, blocks, color)
-    log.log_info("[*] Highlighted %d basic blocks in trace %s" % (len(blocks), filepath))
+    log_info("[*] Highlighted %d basic blocks in trace %s" % (len(blocks), filepath))
 
 
 def tour_set(bv: BinaryView, addresses, duration=None, delay=None):
@@ -247,7 +255,7 @@ def tour_set(bv: BinaryView, addresses, duration=None, delay=None):
         delay = duration / num_addresses
     else:
         delay = float(delay)
-    log.log_debug("[*] %d addresses to tour, delay: %.2f, tour time: %.2f" %
+    log_debug("[*] %d addresses to tour, delay: %.2f, tour time: %.2f" %
                   (num_addresses, delay, delay*num_addresses))
     for addr in addresses:
         bv.navigate(bv.view, addr)
@@ -261,14 +269,14 @@ def highlight_dir(bv: BinaryView, covdir=None, color=None):
         covdir = get_directory_name_input("Coverage File Directory")
     ctx.covdb.add_directory(covdir)
     highlight_set(bv, ctx.covdb.total_coverage)
-    log.log_info("Highlighted basic blocks for %d files from %s" % (len(os.listdir(covdir)), covdir))
+    log_info("Highlighted basic blocks for %d files from %s" % (len(os.listdir(covdir)), covdir))
 
 
 def restore_default_highlights(bv: BinaryView):
     """Resets coverage highlighting to the default heatmap"""
     ctx = get_ctx(bv)
     highlight_set(bv, ctx.covdb.total_coverage)
-    log.log_info("Default highlight colors restored")
+    log_info("Default highlight colors restored")
 
 
 # Import helpers:
@@ -303,13 +311,13 @@ class BackgroundHighlighter(BackgroundTaskThread):
             new_coverage = set()
             for new_file in new_files:
                 new_coverage |= ctx.covdb.add_file(os.path.join(self.coverage_dir, new_file))
-                log.log_debug("[DBG] Added new coverage from file %s @ %d" % (new_file, int(time())))
+                log_debug("[DBG] Added new coverage from file %s @ %d" % (new_file, int(time())))
                 self.files_processed.append(new_file)
             num_new_coverage = len(new_coverage)
             if num_new_coverage > 0:
                 highlight_set(self.bv, new_coverage)
                 idle = 0
-                log.log_debug("[DBG] Updated highlights for %d blocks" % num_new_coverage)
+                log_debug("[DBG] Updated highlights for %d blocks" % num_new_coverage)
             else:
                 if idle >= 0:
                     idle += 1
@@ -325,26 +333,26 @@ class BackgroundHighlighter(BackgroundTaskThread):
     def run(self):
         try:
             ctx = get_ctx(self.bv)
-            log.log_info("[*] Loading coverage files from %s" % self.coverage_dir)
+            log_info("[*] Loading coverage files from %s" % self.coverage_dir)
             dirlist = os.listdir(self.coverage_dir)
             num_files = len(dirlist)
             files_processed = 0
             for filename in dirlist:
                 filepath = os.path.join(self.coverage_dir, filename)
                 if os.path.getsize(filepath) == 0:
-                    log.log_warn('Coverage file %s is empty, skipping...' % filepath)
+                    log_warn('Coverage file %s is empty, skipping...' % filepath)
                     continue
                 blocks = ctx.covdb.add_file(filepath)
                 if len(blocks) == 0:
-                    log.log_warn('Coverage file %s yielded zero coverage information' % filepath)
+                    log_warn('Coverage file %s yielded zero coverage information' % filepath)
                 self.progress = "%d / %d files processed" % (files_processed, num_files)
                 files_processed += 1
                 self.files_processed.append(filename)
                 if self.cancelled:
                     break
             highlight_set(self.bv, ctx.covdb.total_coverage)
-            log.log_info("[*] Highlighted basic blocks for %d files from %s" % (len(dirlist), self.coverage_dir))
-            log.log_info("[*] Parsing/highlighting took %.2f seconds" % (time() - self.start_time))
+            log_info("[*] Highlighted basic blocks for %d files from %s" % (len(dirlist), self.coverage_dir))
+            log_info("[*] Parsing/highlighting took %.2f seconds" % (time() - self.start_time))
             if self.watch:
                 self.watch_dir_forever()
         finally:
@@ -360,14 +368,14 @@ def import_file(bv: BinaryView, filepath=None, color=None):
         if filepath is None:
             return
     if os.path.getsize(filepath) == 0:
-        log.log_warn('Coverage file %s is empty!' % filepath)
+        log_warn('Coverage file %s is empty!' % filepath)
         return
     blocks = ctx.covdb.add_file(filepath)
     if len(blocks) == 0:
-        log.log_warn('Coverage file %s yielded 0 coverage blocks' % filepath)
+        log_warn('Coverage file %s yielded 0 coverage blocks' % filepath)
     else:
         highlight_set(bv, blocks, color)
-        log.log_info("[*] Highlighted %d basic blocks for file %s" % (len(blocks), filepath))
+        log_info("[*] Highlighted %d basic blocks for file %s" % (len(blocks), filepath))
 
 
 def background_import_dir(bv: BinaryView, watch=False):
@@ -390,7 +398,7 @@ def import_saved_covdb(bv: BinaryView, filepath=None):
     try:
         import msgpack
     except ImportError:
-        log.log_error("[!] Can't import saved covdb files without msgpack installed")
+        log_error("[!] Can't import saved covdb files without msgpack installed")
         return
     ctx = get_ctx(bv)
     if filepath is None:
@@ -400,7 +408,7 @@ def import_saved_covdb(bv: BinaryView, filepath=None):
     start_time = time()
     ctx.covdb.load_from_file(filepath)
     highlight_set(bv, ctx.covdb.total_coverage)
-    log.log_info("[*] Highlighted %d blocks from %s (containing %d files) in %.2f seconds" %
+    log_info("[*] Highlighted %d blocks from %s (containing %d files) in %.2f seconds" %
                  (len(ctx.covdb.total_coverage), filepath, len(ctx.covdb.coverage_files), time() - start_time))
 
 
@@ -410,7 +418,7 @@ def clear_coverage(bv: BinaryView):
     if len(ctx.covdb.coverage_files) > 0:
         remove_highlights(bv)
     close_covdb(bv)
-    log.log_info("[*] Coverage information cleared")
+    log_info("[*] Coverage information cleared")
 
 
 # PluginCommands - Highlight functions, only valid once coverage is imported
@@ -420,7 +428,7 @@ def remove_highlights(bv: BinaryView):
         return
     ctx = get_ctx(bv)
     clear_highlights(bv, ctx.covdb.total_coverage)
-    log.log_info("Highlights cleared.")
+    log_info("Highlights cleared.")
 
 
 def highlight_frontier(bv: BinaryView):
@@ -431,9 +439,9 @@ def highlight_frontier(bv: BinaryView):
     frontier_set = ctx.covdb.get_frontier()
     frontier_color = HighlightStandardColor.GreenHighlightColor
     highlight_set(bv, frontier_set, frontier_color)
-    log.log_info("[*] Highlighted %d frontier blocks" % (len(frontier_set)))
+    log_info("[*] Highlighted %d frontier blocks" % (len(frontier_set)))
     for block in frontier_set:
-        log.log_info("      0x%x" % block)
+        log_info("      0x%x" % block)
 
 
 def highlight_rare_blocks(bv: BinaryView, threshold=1):
@@ -444,10 +452,10 @@ def highlight_rare_blocks(bv: BinaryView, threshold=1):
     rare_blocks = ctx.covdb.get_rare_blocks(threshold)
     rare_color = HighlightStandardColor.RedHighlightColor
     highlight_set(bv, rare_blocks, rare_color)
-    log.log_info("[*] Found %d rare blocks (threshold: %d)" %
+    log_info("[*] Found %d rare blocks (threshold: %d)" %
                  (len(rare_blocks), threshold))
     for block in rare_blocks:
-        log.log_info("      0x%x" % block)
+        log_info("      0x%x" % block)
 
 
 # PluginCommand - Report
@@ -475,7 +483,7 @@ def show_coverage_report(bv: BinaryView, save_output=False, filter_func=None, re
             blocks_total += stats.blocks_total
     num_functions = len(addr_to_name_dict)
     if num_functions == 0 and filter_func is not None:
-        log.log_warn('All functions filtered!')
+        log_error('All functions filtered!')
         return
 
     if report_name is None:
@@ -576,7 +584,7 @@ a:link { color: #80c6e9; }
     if save_output:
         with open(html_file, 'w') as f:
             f.write(report_html)
-            log.log_info("[*] Saved HTML report to %s" % html_file)
+            log_info("[*] Saved HTML report to %s" % html_file)
     if choice == save_file:
         interaction.show_message_box("Report Saved",
                                      "Saved HTML report to: %s" % html_file,
