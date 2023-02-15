@@ -69,7 +69,7 @@ class CoverageDB(object):
             raise Exception("[!] Can't save/load coverage db files without msgpack. Try `pip install msgpack`")
         self.filename = filename
         with open(filename, "rb") as f:
-            loaded_dict = msgpack.load(f, raw=False)
+            loaded_dict = msgpack.load(f, raw=False, strict_map_key=False)
         if "version" not in loaded_dict:
             self._old_load_from_file(loaded_dict)
         # Do sanity checks
