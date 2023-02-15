@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import re
 from struct import unpack
 from os.path import basename
 
@@ -15,7 +16,7 @@ def detect_format(filename):
     if isinstance(data, bytes):
         data = data.decode(errors='replace')
 
-    if data.startswith('DRCOV VERSION: 2'):
+    if data.startswith('DRCOV VERSION:'):
         return 'drcov'
     if '+' in data:
         # Check for module+offset, skipping any comment lines at start
@@ -190,14 +191,22 @@ def parse_drcov_file(filename, module_name, module_base, module_blocks, debug=Fa
         data = f.read()
 
     # Sanity checks for expected contents
-    if not data.startswith(b"DRCOV VERSION: 2"):
-        raise Exception("[!] File %s does not appear to be a drcov format file, " % filename +
+    drcov_match = re.match(b"DRCOV VERSION: ([0-9])", data)
+    if drcov_match is None:
+        raise Exception("[!] File \"%s\" does not appear to be a drcov format file, " % filename +
                         "it doesn't start with the expected signature: 'DRCOV VERSION: 2'")
+
+    # Most recent Dynamorio release as of this writing: 9.0.1
+    supported_versions = [2, 3]
+    drcov_version = int(drcov_match.groups()[0])
+    if drcov_version not in supported_versions:
+        raise Exception("[!] The drcov version (%d) of \"%s\" is not yet supported (please file a GitHub issue)" %
+                        (drcov_version, filename))
 
     header_end_pattern = b"BB Table: "
     header_end_location = data.find(header_end_pattern)
     if header_end_location == -1:
-        raise Exception("[!] File %s does not appear to be a drcov format file, " % filename +
+        raise Exception("[!] File \"%s\" does not appear to be a drcov format file, " % filename +
                         "it doesn't contain a header for the basic block table'")
     header_end_location = data.find(b"\n", header_end_location) + 1  # +1 to skip the newline
 
