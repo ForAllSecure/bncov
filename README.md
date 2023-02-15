@@ -15,7 +15,8 @@ combined symbolic execution and fuzzing system, check us out at
 
 ## CHANGELOG
 
-After long consideration, some changes in the API are landing as of Oct 2021:
+Feb 2023: drcov format version 3 now supported.
+Oct 2021: Some changes in the API:
 
 - Added a `ctx` object that is keyed off the Binary View and helpers
   `bncov.get_ctx` and `bncov.get_covdb` to support multibinary use case in the
@@ -102,7 +103,7 @@ be hit, or write your own analyses for headless scripting.
 ## Notes
 
 Currently the plugin only deals with block coverage and ingests files in the
-drcov2 format or "module+offset" format. Included in the repo is
+drcov format or "module+offset" format. Included in the repo is
 `dr_block_coverage.py` which can be used for generating coverage files, just
 specify your DynamoRIO install location with an environment variable (or
 modify the script) and it can process a directory of inputs. DynamoRIO binary
